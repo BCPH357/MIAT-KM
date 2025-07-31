@@ -1,0 +1,6 @@
+neo4j
+PyPDF2
+langchain
+langchain-community
+pypdf
+requests 

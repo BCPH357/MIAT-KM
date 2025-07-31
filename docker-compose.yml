@@ -1,0 +1,56 @@
+version: '3.8'
+services:
+  neo4j:
+    image: neo4j:5.15
+    ports:
+      - "7475:7474"     # Web UI
+      - "7688:7687"     # Bolt protocol
+    environment:
+      - NEO4J_AUTH=neo4j/password123
+      - NEO4J_dbms_memory_pagecache_size=512M
+      - NEO4J_dbms_memory_heap_initial__size=512M
+      - NEO4J_dbms_memory_heap_max__size=1G
+    volumes:
+      - neo4j_data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-O", "/dev/null", "http://localhost:7474"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama
+    ports:
+      - "11435:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  app:
+    build: ./app
+    volumes:
+      - ./app:/app
+      - ./app/data/pdf:/app/data/pdf
+      - ./app/data/processed:/app/data/processed
+    depends_on:
+      neo4j:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    command: ["python", "-u", "main.py"]
+    tty: true
+    stdin_open: true
+    restart: unless-stopped
+
+volumes:
+  neo4j_data:
+  ollama_data: 
