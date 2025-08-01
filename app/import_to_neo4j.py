@@ -90,7 +90,7 @@ if __name__ == "__main__":
     # 確認三元組文件存在
     if not os.path.exists(triples_file):
         print(f"三元組文件不存在: {triples_file}")
-        print("請先運行 triple_extraction.py 生成三元組")
+        print("請先運行 sentence_triplet_extractor.py 生成三元組")
         exit(1)
     
     # 導入三元組

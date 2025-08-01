@@ -22,7 +22,7 @@ class RAGSystem:
             if not available_models.get("error"):
                 print("可用模型:", [m["name"] for m in available_models.get("models", [])])
     
-    def answer_question(self, user_query: str, use_rag: bool = True) -> Dict[str, Any]:
+    def answer_question(self, user_query: str, use_rag: bool = True, use_langchain: bool = False) -> Dict[str, Any]:
         """
         回答用戶問題
         """
@@ -31,15 +31,32 @@ class RAGSystem:
         result = {
             "query": user_query,
             "use_rag": use_rag,
+            "use_langchain": use_langchain,
             "knowledge_context": "",
             "answer": "",
             "retrieval_time": 0,
             "generation_time": 0,
             "total_time": 0,
-            "knowledge_items_count": 0
+            "knowledge_items_count": 0,
+            "cypher_query": "",
+            "context_data": []
         }
         
-        if use_rag:
+        if use_langchain:
+            # 使用 LangChain GraphCypherQAChain
+            retrieval_start = time.time()
+            langchain_result = self.knowledge_retriever.langchain_search(user_query)
+            retrieval_time = time.time() - retrieval_start
+            
+            result["answer"] = langchain_result["answer"]
+            result["cypher_query"] = langchain_result["cypher_query"]
+            result["context_data"] = langchain_result["context"]
+            result["knowledge_context"] = f"Cypher查詢: {langchain_result['cypher_query']}\n檢索到的數據: {langchain_result['context']}"
+            result["retrieval_time"] = retrieval_time
+            result["generation_time"] = 0  # LangChain 內部處理
+            result["knowledge_items_count"] = len(langchain_result["context"]) if isinstance(langchain_result["context"], list) else 0
+            
+        elif use_rag:
             # 步驟 1: 從 Neo4j 檢索相關知識
             retrieval_start = time.time()
             knowledge_context = self.knowledge_retriever.comprehensive_search(user_query)
@@ -98,37 +115,18 @@ class RAGSystem:
             "normal_result": normal_result
         }
     
-    def search_knowledge_only(self, query: str) -> str:
-        """
-        僅搜索知識，不生成回答
-        """
-        return self.knowledge_retriever.comprehensive_search(query)
-    
-    def get_entity_info(self, entity_name: str) -> Dict[str, Any]:
-        """
-        獲取特定實體的詳細信息
-        """
-        relations = self.knowledge_retriever.search_by_entity(entity_name)
-        neighbors = self.knowledge_retriever.get_entity_neighbors(entity_name)
-        
-        return {
-            "entity": entity_name,
-            "relations": relations,
-            "neighbors": neighbors
-        }
+
     
     def interactive_qa(self):
         """
-        互動式問答
+        互動式問答 - 簡化版，直接使用 LangChain
         """
         print("=== RAG 知識問答系統 ===")
-        print("直接輸入問題，系統會自動搜索知識庫並回答")
+        print("💡 使用 LangChain + Ollama Gemma3 12B + Neo4j 知識圖譜")
+        print("直接輸入問題，系統會自動從知識庫檢索並回答")
         print("輸入 'quit' 或 'exit' 退出")
-        print("輸入 'compare <問題>' 比較 RAG 和普通回答")
-        print("輸入 'search <關鍵字>' 僅搜索知識")
-        print("輸入 'entity <實體名>' 查看實體信息")
-        print("輸入 'detail <問題>' 查看詳細的檢索過程")
-        print("-" * 50)
+        print("輸入 'langchain <問題>' 顯示詳細的檢索過程")
+        print("-" * 60)
         
         while True:
             try:
@@ -137,42 +135,19 @@ class RAGSystem:
                 if user_input.lower() in ['quit', 'exit', '退出']:
                     break
                 
-                if user_input.startswith('compare '):
-                    query = user_input[8:].strip()
+                elif user_input.startswith('langchain '):
+                    # 顯示詳細的 LangChain 過程
+                    query = user_input[10:].strip()
                     if query:
-                        result = self.compare_rag_vs_normal(query)
-                        self._print_comparison_result(result)
+                        result = self.answer_question(query, use_rag=False, use_langchain=True)
+                        self._print_langchain_result(result)
                     else:
-                        print("請提供要比較的問題")
-                
-                elif user_input.startswith('search '):
-                    query = user_input[7:].strip()
-                    if query:
-                        knowledge = self.search_knowledge_only(query)
-                        print(f"\n搜索結果:\n{knowledge}")
-                    else:
-                        print("請提供搜索關鍵字")
-                
-                elif user_input.startswith('entity '):
-                    entity = user_input[7:].strip()
-                    if entity:
-                        info = self.get_entity_info(entity)
-                        self._print_entity_info(info)
-                    else:
-                        print("請提供實體名稱")
-                
-                elif user_input.startswith('detail '):
-                    query = user_input[7:].strip()
-                    if query:
-                        result = self.answer_question(query, use_rag=True)
-                        self._print_rag_result(result)
-                    else:
-                        print("請提供要詳細分析的問題")
+                        print("請提供問題")
                 
                 elif user_input:
-                    # 自動使用 RAG 回答問題
-                    result = self.answer_question(user_input, use_rag=True)
-                    self._print_simple_answer(result)
+                    # 直接使用 LangChain，但只顯示簡潔的結果
+                    result = self.answer_question(user_input, use_rag=False, use_langchain=True)
+                    self._print_simple_langchain_answer(result)
                 
             except KeyboardInterrupt:
                 break
@@ -254,6 +229,53 @@ class RAGSystem:
         
         if result['use_rag'] and result['knowledge_items_count'] == 0:
             print("\n(注意: 知識庫中沒有找到相關信息，以上為模型的一般知識回答)")
+    
+    def _print_langchain_result(self, result: Dict[str, Any]):
+        """
+        格式化打印 LangChain 結果
+        """
+        print(f"\n{'='*60}")
+        print(f"問題: {result['query']}")
+        print(f"【使用 LangChain GraphCypherQAChain】")
+        print(f"{'='*60}")
+        
+        if result['cypher_query']:
+            print(f"\n🔧 LLM 生成的 Cypher 查詢:")
+            # 清理 cypher 前綴
+            clean_query = result['cypher_query'].replace('cypher\n', '').strip()
+            print(f"   {clean_query}")
+        
+        if result['context_data']:
+            print(f"\n📊 從 Neo4j 檢索到的知識 ({len(result['context_data'])} 項):")
+            for i, item in enumerate(result['context_data'], 1):
+                if isinstance(item, dict):
+                    subject = item.get('subject', '')
+                    predicate = item.get('predicate', '')
+                    object_val = item.get('object', '')
+                    print(f"   {i}. {subject} → [{predicate}] → {object_val}")
+                else:
+                    print(f"   {i}. {item}")
+        else:
+            print(f"\n📊 沒有檢索到相關知識")
+        
+        print(f"\n🤖 LLM 最終回答:")
+        print(f"   {result['answer']}")
+        
+        print(f"\n⏱️ 執行時間:")
+        print(f"   檢索時間: {result['retrieval_time']:.2f} 秒")
+        print(f"   總時間: {result['total_time']:.2f} 秒")
+        
+    def _print_simple_langchain_answer(self, result: Dict[str, Any]):
+        """
+        簡潔版的 LangChain 結果顯示
+        """
+        print(f"\n🤖 回答:")
+        print(f"   {result['answer']}")
+        
+        if result['context_data']:
+            print(f"\n📚 基於 {len(result['context_data'])} 個知識項目 (執行時間: {result['total_time']:.2f}s)")
+        else:
+            print(f"\n⚠️  知識庫中沒有找到相關信息 (執行時間: {result['total_time']:.2f}s)")
     
     def close(self):
         """
