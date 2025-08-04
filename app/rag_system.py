@@ -22,7 +22,7 @@ class RAGSystem:
             if not available_models.get("error"):
                 print("可用模型:", [m["name"] for m in available_models.get("models", [])])
     
-    def answer_question(self, user_query: str, use_rag: bool = True, use_langchain: bool = False) -> Dict[str, Any]:
+    def answer_question(self, user_query: str, use_rag: bool = True, use_langchain: bool = False, use_hybrid: bool = False) -> Dict[str, Any]:
         """
         回答用戶問題
         """
@@ -32,6 +32,7 @@ class RAGSystem:
             "query": user_query,
             "use_rag": use_rag,
             "use_langchain": use_langchain,
+            "use_hybrid": use_hybrid,
             "knowledge_context": "",
             "answer": "",
             "retrieval_time": 0,
@@ -42,7 +43,21 @@ class RAGSystem:
             "context_data": []
         }
         
-        if use_langchain:
+        if use_hybrid:
+            # 使用混合RAG模式：LangChain檢索 + 自定義生成
+            retrieval_start = time.time()
+            hybrid_result = self.knowledge_retriever.hybrid_search(user_query, self.ollama_client)
+            retrieval_time = time.time() - retrieval_start
+            
+            result["answer"] = hybrid_result["answer"]
+            result["cypher_query"] = hybrid_result["cypher_query"]
+            result["context_data"] = hybrid_result["context"]
+            result["knowledge_context"] = f"Cypher查詢: {hybrid_result['cypher_query']}\n檢索到的數據: {hybrid_result['context']}"
+            result["retrieval_time"] = retrieval_time
+            result["generation_time"] = 0  # 包含在retrieval_time中
+            result["knowledge_items_count"] = len(hybrid_result["context"]) if isinstance(hybrid_result["context"], list) else 0
+            
+        elif use_langchain:
             # 使用 LangChain GraphCypherQAChain
             retrieval_start = time.time()
             langchain_result = self.knowledge_retriever.langchain_search(user_query)
@@ -121,11 +136,14 @@ class RAGSystem:
         """
         互動式問答 - 簡化版，直接使用 LangChain
         """
-        print("=== RAG 知識問答系統 ===")
+        print("=== RAG 知識問答系統 (增強版) ===")
         print("💡 使用 LangChain + Ollama Gemma3 12B + Neo4j 知識圖譜")
-        print("直接輸入問題，系統會自動從知識庫檢索並回答")
-        print("輸入 'quit' 或 'exit' 退出")
-        print("輸入 'langchain <問題>' 顯示詳細的檢索過程")
+        print("\n🔧 可用命令:")
+        print("  直接輸入問題 → 使用改進的LangChain模式")
+        print("  'hybrid <問題>' → 使用混合RAG模式(推薦)")
+        print("  'langchain <問題>' → 使用原始LangChain模式")
+        print("  'compare <問題>' → 同時比較三種模式")
+        print("  'quit' 或 'exit' → 退出系統")
         print("-" * 60)
         
         while True:
@@ -135,8 +153,17 @@ class RAGSystem:
                 if user_input.lower() in ['quit', 'exit', '退出']:
                     break
                 
+                elif user_input.startswith('hybrid '):
+                    # 使用混合RAG模式
+                    query = user_input[7:].strip()
+                    if query:
+                        result = self.answer_question(query, use_rag=False, use_langchain=False, use_hybrid=True)
+                        self._print_hybrid_result(result)
+                    else:
+                        print("請提供問題")
+                
                 elif user_input.startswith('langchain '):
-                    # 顯示詳細的 LangChain 過程
+                    # 使用原始LangChain模式
                     query = user_input[10:].strip()
                     if query:
                         result = self.answer_question(query, use_rag=False, use_langchain=True)
@@ -144,8 +171,16 @@ class RAGSystem:
                     else:
                         print("請提供問題")
                 
+                elif user_input.startswith('compare '):
+                    # 比較三種模式
+                    query = user_input[8:].strip()
+                    if query:
+                        self._compare_modes(query)
+                    else:
+                        print("請提供問題")
+                
                 elif user_input:
-                    # 直接使用 LangChain，但只顯示簡潔的結果
+                    # 直接使用改進的LangChain模式
                     result = self.answer_question(user_input, use_rag=False, use_langchain=True)
                     self._print_simple_langchain_answer(result)
                 
@@ -276,6 +311,69 @@ class RAGSystem:
             print(f"\n📚 基於 {len(result['context_data'])} 個知識項目 (執行時間: {result['total_time']:.2f}s)")
         else:
             print(f"\n⚠️  知識庫中沒有找到相關信息 (執行時間: {result['total_time']:.2f}s)")
+    
+    def _print_hybrid_result(self, result: Dict[str, Any]):
+        """
+        格式化打印混合RAG結果
+        """
+        print(f"\n{'='*60}")
+        print(f"問題: {result['query']}")
+        print(f"【混合RAG模式】LangChain檢索 + 自定義生成")
+        print(f"{'='*60}")
+        
+        if result['cypher_query']:
+            print(f"\n🔧 LLM 生成的 Cypher 查詢:")
+            clean_query = result['cypher_query'].replace('cypher\n', '').strip()
+            print(f"   {clean_query}")
+        
+        if result['context_data']:
+            print(f"\n📊 從 Neo4j 檢索到的知識 ({len(result['context_data'])} 項):")
+            for i, item in enumerate(result['context_data'], 1):
+                if isinstance(item, dict):
+                    subject = item.get('subject', '')
+                    predicate = item.get('predicate', '')
+                    object_val = item.get('object', '')
+                    print(f"   {i}. {subject} → [{predicate}] → {object_val}")
+                else:
+                    print(f"   {i}. {item}")
+        else:
+            print(f"\n📊 沒有檢索到相關知識")
+        
+        print(f"\n🤖 混合RAG生成的詳細回答:")
+        print(f"{result['answer']}")
+        
+        print(f"\n⏱️ 執行時間: {result['total_time']:.2f} 秒")
+    
+    def _compare_modes(self, query: str):
+        """
+        比較三種模式的回答
+        """
+        print(f"\n{'='*70}")
+        print(f"三模式比較：{query}")
+        print(f"{'='*70}")
+        
+        # 1. 改進的LangChain模式
+        print(f"\n【模式一：改進的LangChain】")
+        print("-" * 40)
+        result1 = self.answer_question(query, use_rag=False, use_langchain=True)
+        print(f"回答: {result1['answer']}")
+        print(f"時間: {result1['total_time']:.2f}s | 知識項目: {result1['knowledge_items_count']}")
+        
+        # 2. 混合RAG模式
+        print(f"\n【模式二：混合RAG (推薦)】")
+        print("-" * 40)
+        result2 = self.answer_question(query, use_rag=False, use_langchain=False, use_hybrid=True)
+        print(f"回答: {result2['answer']}")
+        print(f"時間: {result2['total_time']:.2f}s | 知識項目: {result2['knowledge_items_count']}")
+        
+        # 3. 傳統RAG模式
+        print(f"\n【模式三：傳統RAG】")
+        print("-" * 40)
+        result3 = self.answer_question(query, use_rag=True, use_langchain=False)
+        print(f"回答: {result3['answer']}")
+        print(f"時間: {result3['total_time']:.2f}s | 知識項目: {result3['knowledge_items_count']}")
+        
+        print(f"\n💡 推薦使用混合RAG模式獲得最佳效果")
     
     def close(self):
         """

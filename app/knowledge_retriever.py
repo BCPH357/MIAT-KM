@@ -20,7 +20,11 @@ class Neo4jKnowledgeRetriever:
         # 初始化 Ollama LLM
         self.llm = Ollama(
             model="gemma3:12b",
-            base_url="http://ollama:11434"
+            base_url="http://ollama:11434",
+            temperature=0.7,
+            num_predict=512,  # 增加最大生成token數
+            top_p=0.9,
+            top_k=50
         )
         
         # 創建自定義的 Cypher prompt
@@ -58,11 +62,34 @@ class Neo4jKnowledgeRetriever:
 請生成適當的 Cypher 查詢：
 """)
 
+        # 創建自定義的 QA prompt
+        custom_qa_prompt = PromptTemplate.from_template("""
+你是一個專業的知識問答助手。請基於以下從知識圖譜檢索到的信息來詳細回答用戶的問題。
+
+從知識圖譜檢索到的相關信息：
+{context}
+
+用戶問題：{question}
+
+請根據上述檢索到的知識信息，提供一個詳細、完整且有條理的回答。要求：
+
+1. **完整性**：盡可能整合所有相關的檢索信息
+2. **詳細性**：提供豐富的細節和背景信息
+3. **結構化**：使用清晰的段落和邏輯結構
+4. **準確性**：嚴格基於檢索到的知識，不要添加不存在的信息
+5. **關聯性**：解釋不同信息之間的關係和聯繫
+
+如果檢索到的信息不足以完全回答問題，請明確說明哪些方面的信息不足，並基於已有信息提供盡可能詳細的回答。
+
+請開始你的詳細回答：
+""")
+
         # 創建 GraphCypherQAChain
         self.cypher_chain = GraphCypherQAChain.from_llm(
             llm=self.llm,
             graph=self.graph,
             cypher_prompt=custom_cypher_prompt,
+            qa_prompt=custom_qa_prompt,
             verbose=True,
             return_intermediate_steps=True,
             return_direct=False,
@@ -72,6 +99,75 @@ class Neo4jKnowledgeRetriever:
     def close(self):
         self.driver.close()
     
+    def hybrid_search(self, query: str, ollama_client) -> Dict:
+        """
+        混合RAG模式：使用LangChain檢索 + 自定義回答生成
+        """
+        try:
+            # 使用LangChain僅進行Cypher查詢和數據檢索
+            result = self.cypher_chain.invoke({"query": query})
+            
+            # 解析檢索結果
+            cypher_query = ''
+            context_data = []
+            
+            if 'intermediate_steps' in result and result['intermediate_steps']:
+                if len(result['intermediate_steps']) > 0:
+                    cypher_query = result['intermediate_steps'][0].get('query', '')
+                if len(result['intermediate_steps']) > 1:
+                    context_data = result['intermediate_steps'][1].get('context', [])
+            
+            # 格式化檢索到的知識用於自定義生成
+            if context_data:
+                knowledge_items = []
+                for i, item in enumerate(context_data, 1):
+                    if isinstance(item, dict):
+                        subject = item.get('subject', '')
+                        predicate = item.get('predicate', '')
+                        object_val = item.get('object', '')
+                        knowledge_items.append(f"{i}. {subject} → [{predicate}] → {object_val}")
+                    else:
+                        knowledge_items.append(f"{i}. {item}")
+                
+                knowledge_context = "從知識圖譜檢索到的相關信息：\n" + "\n".join(knowledge_items)
+                
+                # 使用自定義RAG生成詳細回答
+                detailed_answer = ollama_client.rag_generate(
+                    model="gemma3:12b",
+                    user_query=query,
+                    knowledge_context=knowledge_context,
+                    temperature=0.7
+                )
+            else:
+                detailed_answer = "很抱歉，知識庫中沒有找到相關信息來回答您的問題。"
+            
+            print(f"🔍 混合模式完整結果結構: {result.keys()}")
+            if 'intermediate_steps' in result:
+                print(f"📊 中間步驟數量: {len(result['intermediate_steps'])}")
+                for i, step in enumerate(result['intermediate_steps']):
+                    print(f"   步驟 {i}: {step.keys()}")
+            
+            return {
+                'answer': detailed_answer,
+                'cypher_query': cypher_query,
+                'context': context_data,
+                'full_result': result,
+                'raw_intermediate_steps': result.get('intermediate_steps', []),
+                'mode': 'hybrid'
+            }
+        except Exception as e:
+            print(f"❌ 混合模式查詢錯誤: {e}")
+            import traceback
+            traceback.print_exc()
+            return {
+                'answer': f'查詢過程中發生錯誤: {e}',
+                'cypher_query': '',
+                'context': [],
+                'full_result': {},
+                'raw_intermediate_steps': [],
+                'mode': 'hybrid'
+            }
+
     def langchain_search(self, query: str) -> Dict:
         """
         使用 LangChain GraphCypherQAChain 進行智能查詢
