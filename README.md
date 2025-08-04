@@ -10,9 +10,13 @@
 
 - 🔄 **自動三元組提取**: 使用 Ollama Gemma3 12B 從 PDF 文件提取知識三元組
 - 📊 **知識圖譜構建**: 將提取的三元組自動導入 Neo4j 建構知識圖譜
-- 🤖 **智能問答**: 基於 LangChain + Neo4j + Ollama 的 RAG 系統
+- 🤖 **多模式智能問答**: 
+  - **改進LangChain模式**: 優化的GraphCypherQAChain，提供更詳細的回答
+  - **混合RAG模式**: 結合LangChain檢索與自定義生成，獲得最佳回答品質
+  - **模式比較功能**: 即時比較不同問答模式的效果
 - ⚡ **GPU 加速**: 支援 NVIDIA GPU 加速 LLM 推理
 - 🐳 **容器化部署**: 完整的 Docker Compose 一鍵部署方案
+- 🎯 **增強用戶體驗**: 直觀的命令介面和詳細的執行反饋
 
 ## 🏗️ 系統架構
 
@@ -117,10 +121,17 @@ docker run --rm --gpus all nvidia/cuda:11.0.3-base-ubuntu20.04 nvidia-smi
    4. 退出
    ```
 
-4. **使用 RAG 問答**
-   - 直接輸入問題：系統會自動使用 LangChain 進行智能問答
-   - 輸入 `langchain <問題>`：顯示詳細的檢索過程
-   - 輸入 `quit` 或 `exit`：退出問答系統
+4. **使用 RAG 問答系統**
+   
+   系統提供多種問答模式：
+   
+   - **直接輸入問題**: 使用改進的LangChain模式
+   - **`hybrid <問題>`**: 使用混合RAG模式 (**推薦**)
+   - **`langchain <問題>`**: 使用原始LangChain模式
+   - **`compare <問題>`**: 同時比較三種模式的效果
+   - **`quit` 或 `exit`**: 退出問答系統
+   
+   **混合RAG模式**結合了LangChain精準的知識檢索能力與自定義生成的詳細回答，通常能提供最佳的問答體驗。
 
 ## 🐳 Docker Compose 常用命令
 
@@ -180,15 +191,66 @@ sudo docker-compose exec ollama nvidia-smi
 
 ### 🎯 主程式
 - **`main.py`**: 系統主入口，提供用戶交互菜單
-- **`rag_system.py`**: RAG 系統核心邏輯，整合知識檢索和回答生成
+- **`rag_system.py`**: 增強型RAG系統核心邏輯，包含：
+  - 多模式問答支援 (LangChain/混合RAG/傳統RAG)
+  - 模式比較功能
+  - 增強的用戶介面和結果顯示
 
 ### 🔍 知識處理
 - **`sentence_triplet_extractor.py`**: 使用 Ollama 從 PDF 逐句提取三元組
 - **`import_to_neo4j.py`**: 將 CSV 格式的三元組批量導入 Neo4j
-- **`knowledge_retriever.py`**: 知識檢索器，整合 LangChain GraphCypherQAChain
+- **`knowledge_retriever.py`**: 增強型知識檢索器，支援多種RAG模式：
+  - LangChain GraphCypherQAChain 整合
+  - 自定義QA prompt模板優化
+  - 混合RAG模式實現
 
 ### 🤖 LLM 整合
 - **`ollama_client.py`**: Ollama API 客戶端，處理與本地 LLM 的通信
+
+## 🚀 RAG 系統特色
+
+### 🔄 多模式問答架構
+
+本系統提供三種不同的RAG問答模式，滿足不同場景需求：
+
+#### 1. 改進LangChain模式 (Enhanced LangChain)
+- **特點**: 基於LangChain GraphCypherQAChain的優化版本
+- **改進**: 
+  - 自定義QA prompt模板，指導LLM生成更詳細回答
+  - 優化Ollama參數配置 (num_predict=512, temperature=0.7)
+  - 提升回答的完整性和結構化程度
+- **適用**: 需要快速且相對詳細回答的場景
+
+#### 2. 混合RAG模式 (**推薦**)
+- **特點**: 結合LangChain精準檢索與自定義生成的最佳實踐
+- **工作流程**: 
+  1. 使用LangChain生成Cypher查詢並檢索知識
+  2. 將檢索結果交由自定義RAG生成器處理
+  3. 基於豐富的prompt模板生成詳細、完整的回答
+- **優勢**: 
+  - 檢索精度高 (LangChain)
+  - 回答品質佳 (自定義生成)
+  - 知識整合完整
+- **適用**: 需要高品質、詳細回答的重要查詢
+
+#### 3. 傳統RAG模式
+- **特點**: 直接使用Neo4j檢索配合自定義生成
+- **適用**: 對檢索邏輯有特殊需求的場景
+
+### 📊 模式比較功能
+
+使用 `compare <問題>` 命令可以同時測試三種模式，幫助您：
+- 對比不同模式的回答品質
+- 分析執行時間差異
+- 選擇最適合的問答模式
+- 評估系統性能
+
+### 🎯 使用建議
+
+1. **日常問答**: 直接輸入問題 (改進LangChain模式)
+2. **重要查詢**: 使用 `hybrid <問題>` (混合RAG模式)
+3. **效果比較**: 使用 `compare <問題>` (三模式對比)
+4. **調試檢索**: 使用 `langchain <問題>` (查看詳細過程)
 
 ## 🌐 服務訪問
 
