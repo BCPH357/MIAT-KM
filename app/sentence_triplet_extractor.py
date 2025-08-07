@@ -264,9 +264,9 @@ def process_pdf_directory(pdf_dir):
                 logger.info(f"從 {filename} 提取了 {len(text)} 個字符")
                 
                 # 限制文本長度避免處理時間過長
-                if len(text) > 50000:
-                    text = text[:50000]
-                    logger.warning(f"文本過長，已截取前 50000 字符")
+                if len(text) > 500000:
+                    text = text[:500000]
+                    logger.warning(f"文本過長，已截取前 500000 字符")
                 
                 # 抽取三元組
                 triplets = extractor.extract_triplets_from_text(text, filename)
