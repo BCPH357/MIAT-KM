@@ -7,15 +7,16 @@ from pypdf import PdfReader
 from typing import List, Tuple
 import logging
 import time
+from config import OLLAMA_MODEL, OLLAMA_BASE_URL, PDF_DIR, MARKDOWN_DIR, PROCESSED_DIR
 
 # 設置日誌
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 class DeepSeekTripletExtractor:
-    """基於句子的 DeepSeek 三元組抽取器"""
+    """基於句子的三元組抽取器，支持 PDF 和 Markdown 文件"""
     
-    def __init__(self, base_url="http://ollama:11434", model="gemma3:12b"):
+    def __init__(self, base_url=OLLAMA_BASE_URL, model=OLLAMA_MODEL):
         self.base_url = base_url
         self.model = model
         self.api_url = f"{base_url}/api/generate"
@@ -248,19 +249,68 @@ def extract_text_from_pdf(pdf_path):
         text += page.extract_text() + "\n"
     return text
 
-def process_pdf_directory(pdf_dir):
-    """處理目錄中的所有 PDF 文件"""
+def extract_text_from_markdown(md_path):
+    """從 Markdown 文件中提取文本"""
+    with open(md_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+    
+    # 移除 Markdown 語法
+    # 移除代碼塊
+    content = re.sub(r'```[\s\S]*?```', '', content)
+    content = re.sub(r'`[^`]*`', '', content)
+    
+    # 移除標題符號
+    content = re.sub(r'^#{1,6}\s+', '', content, flags=re.MULTILINE)
+    
+    # 移除鏈接語法
+    content = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', content)
+    
+    # 移除圖片語法
+    content = re.sub(r'!\[[^\]]*\]\([^)]+\)', '', content)
+    
+    # 移除粗體和斜體標記
+    content = re.sub(r'\*\*([^*]+)\*\*', r'\1', content)
+    content = re.sub(r'\*([^*]+)\*', r'\1', content)
+    content = re.sub(r'__([^_]+)__', r'\1', content)
+    content = re.sub(r'_([^_]+)_', r'\1', content)
+    
+    # 移除列表符號
+    content = re.sub(r'^[\s]*[-*+]\s+', '', content, flags=re.MULTILINE)
+    content = re.sub(r'^[\s]*\d+\.\s+', '', content, flags=re.MULTILINE)
+    
+    # 移除水平線
+    content = re.sub(r'^[-*_]{3,}$', '', content, flags=re.MULTILINE)
+    
+    # 清理多餘的空白行
+    content = re.sub(r'\n\s*\n', '\n\n', content)
+    
+    return content.strip()
+
+def process_files_directory(input_dir, file_extensions=['.pdf', '.md']):
+    """處理目錄中的所有支持文件（PDF 和 Markdown）"""
     all_triplets = []
     extractor = DeepSeekTripletExtractor()
     
-    for filename in os.listdir(pdf_dir):
-        if filename.endswith('.pdf'):
-            pdf_path = os.path.join(pdf_dir, filename)
+    if not os.path.exists(input_dir):
+        logger.warning(f"目錄不存在: {input_dir}")
+        return all_triplets
+    
+    for filename in os.listdir(input_dir):
+        file_extension = os.path.splitext(filename)[1].lower()
+        
+        if file_extension in file_extensions:
+            file_path = os.path.join(input_dir, filename)
             logger.info(f"開始處理文件: {filename}")
             
             try:
-                # 提取文本
-                text = extract_text_from_pdf(pdf_path)
+                # 根據文件類型提取文本
+                if file_extension == '.pdf':
+                    text = extract_text_from_pdf(file_path)
+                elif file_extension == '.md':
+                    text = extract_text_from_markdown(file_path)
+                else:
+                    continue
+                    
                 logger.info(f"從 {filename} 提取了 {len(text)} 個字符")
                 
                 # 限制文本長度避免處理時間過長
@@ -280,6 +330,10 @@ def process_pdf_directory(pdf_dir):
     
     return all_triplets
 
+def process_pdf_directory(pdf_dir):
+    """處理目錄中的所有 PDF 文件 (向後兼容)"""
+    return process_files_directory(pdf_dir, ['.pdf'])
+
 def save_triplets_to_csv(triplets, output_file):
     """將三元組保存到 CSV 文件"""
     with open(output_file, 'w', newline='', encoding='utf-8-sig') as f:
@@ -294,24 +348,37 @@ def save_triplets_to_csv(triplets, output_file):
                 writer.writerow([triplet[0], triplet[1], triplet[2], "unknown"])
 
 if __name__ == "__main__":
-    # 設置路徑
-    pdf_dir = "/app/data/pdf"
-    output_file = "/app/data/processed/triples.csv"
+    # 使用全域配置的路徑
+    output_file = os.path.join(PROCESSED_DIR, "triples.csv")
     
-    # 確保輸出目錄存在
-    os.makedirs(os.path.dirname(output_file), exist_ok=True)
+    # 確保目錄存在
+    os.makedirs(PROCESSED_DIR, exist_ok=True)
+    os.makedirs(MARKDOWN_DIR, exist_ok=True)
     
     logger.info("開始基於句子的三元組抽取...")
     
+    all_triplets = []
+    
     # 處理 PDF 文件
-    triplets = process_pdf_directory(pdf_dir)
+    if os.path.exists(PDF_DIR):
+        logger.info("處理 PDF 文件...")
+        pdf_triplets = process_files_directory(PDF_DIR, ['.pdf'])
+        all_triplets.extend(pdf_triplets)
+        logger.info(f"從 PDF 文件抽取到 {len(pdf_triplets)} 個三元組")
+    
+    # 處理 Markdown 文件
+    if os.path.exists(MARKDOWN_DIR):
+        logger.info("處理 Markdown 文件...")
+        md_triplets = process_files_directory(MARKDOWN_DIR, ['.md'])
+        all_triplets.extend(md_triplets)
+        logger.info(f"從 Markdown 文件抽取到 {len(md_triplets)} 個三元組")
     
     # 保存結果
-    save_triplets_to_csv(triplets, output_file)
+    save_triplets_to_csv(all_triplets, output_file)
     
-    logger.info(f"抽取完成！共得到 {len(triplets)} 個三元組，已保存到 {output_file}")
+    logger.info(f"抽取完成！共得到 {len(all_triplets)} 個三元組，已保存到 {output_file}")
     
     # 顯示前 10 個三元組示例
     print("\n前 10 個三元組示例：")
-    for i, triplet in enumerate(triplets[:10]):
+    for i, triplet in enumerate(all_triplets[:10]):
         print(f"{i+1}. {triplet[0]} - {triplet[1]} - {triplet[2]} (來源: {triplet[3]})") 

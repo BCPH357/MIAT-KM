@@ -2,14 +2,15 @@ from knowledge_retriever import Neo4jKnowledgeRetriever
 from ollama_client import OllamaClient
 import time
 from typing import Dict, Any
+from config import NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD, OLLAMA_BASE_URL, OLLAMA_MODEL
 
 class RAGSystem:
     def __init__(self, 
-                 neo4j_uri: str = "bolt://neo4j:7687",
-                 neo4j_user: str = "neo4j", 
-                 neo4j_password: str = "password123",
-                 ollama_url: str = "http://ollama:11434",
-                 model_name: str = "gemma3:12b"):
+                 neo4j_uri: str = NEO4J_URI,
+                 neo4j_user: str = NEO4J_USER, 
+                 neo4j_password: str = NEO4J_PASSWORD,
+                 ollama_url: str = OLLAMA_BASE_URL,
+                 model_name: str = OLLAMA_MODEL):
         
         self.knowledge_retriever = Neo4jKnowledgeRetriever(neo4j_uri, neo4j_user, neo4j_password)
         self.ollama_client = OllamaClient(ollama_url)

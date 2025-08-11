@@ -3,12 +3,13 @@ import time
 import os
 from neo4j import GraphDatabase
 from rag_system import RAGSystem
+from config import NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD, PDF_DIR, MARKDOWN_DIR, OLLAMA_MODEL
 
 # 連接到 Neo4j
 def connect_to_neo4j():
-    uri = "bolt://neo4j:7687"
-    user = "neo4j"
-    password = "password123"
+    uri = NEO4J_URI
+    user = NEO4J_USER
+    password = NEO4J_PASSWORD
     
     print("正在連接到 Neo4j...")
     
@@ -29,25 +30,44 @@ def connect_to_neo4j():
 
 
 
-# 檢查 PDF 目錄
-def check_pdf_directory():
-    pdf_dir = "/app/data/pdf"
-    if not os.path.exists(pdf_dir):
-        print(f"PDF 目錄不存在: {pdf_dir}")
+# 檢查文件目錄
+def check_files_directory():
+    pdf_exists = os.path.exists(PDF_DIR)
+    md_exists = os.path.exists(MARKDOWN_DIR)
+    
+    if not pdf_exists and not md_exists:
+        print(f"文件目錄不存在: {PDF_DIR} 和 {MARKDOWN_DIR}")
         return False
     
-    pdf_files = [f for f in os.listdir(pdf_dir) if f.endswith('.pdf')]
-    if not pdf_files:
-        print(f"PDF 目錄中沒有 PDF 文件，請先上傳 PDF 文件到 {pdf_dir}")
+    total_files = 0
+    
+    if pdf_exists:
+        pdf_files = [f for f in os.listdir(PDF_DIR) if f.endswith('.pdf')]
+        total_files += len(pdf_files)
+        if pdf_files:
+            print(f"找到 {len(pdf_files)} 個 PDF 文件")
+    
+    if md_exists:
+        md_files = [f for f in os.listdir(MARKDOWN_DIR) if f.endswith('.md')]
+        total_files += len(md_files)
+        if md_files:
+            print(f"找到 {len(md_files)} 個 Markdown 文件")
+    
+    if total_files == 0:
+        print(f"沒有找到任何支持的文件，請上傳 PDF 或 Markdown 文件")
         return False
     
-    print(f"找到 {len(pdf_files)} 個 PDF 文件")
+    print(f"總共找到 {total_files} 個支持的文件")
     return True
+
+# 檢查 PDF 目錄 (向後兼容)
+def check_pdf_directory():
+    return check_files_directory()
 
 # 顯示菜單
 def show_menu():
     print("\n=== 知識圖譜應用菜單 ===")
-    print("1. 從 PDF 文件提取三元組")
+    print("1. 從文件提取三元組 (PDF 和 Markdown)")
     print("2. 將三元組導入到 Neo4j")
     print("3. RAG 問答系統")
     print("4. 退出")
@@ -66,11 +86,12 @@ def main():
             choice = show_menu()
             
             if choice == '1':
-                # 檢查 PDF 目錄
-                if check_pdf_directory():
-                    # 從 PDF 提取三元組
-                    print("開始從 PDF 提取三元組...")
-                    print("使用基於句子的 Gemma3 抽取器...")
+                # 檢查文件目錄
+                if check_files_directory():
+                    # 從文件提取三元組
+                    print("開始從文件提取三元組...")
+                    print("支持 PDF 和 Markdown 文件")
+                    print(f"使用 {OLLAMA_MODEL} 模型進行抽取...")
                     os.system("python /app/sentence_triplet_extractor.py")
                 
             elif choice == '2':

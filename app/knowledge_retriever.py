@@ -5,6 +5,7 @@ from langchain.chains import GraphCypherQAChain
 from langchain_community.graphs import Neo4jGraph
 from langchain_community.llms import Ollama
 from langchain.prompts.prompt import PromptTemplate
+from config import OLLAMA_MODEL, OLLAMA_BASE_URL, MODEL_TEMPERATURE, MODEL_NUM_PREDICT, MODEL_TOP_P, MODEL_TOP_K
 
 class Neo4jKnowledgeRetriever:
     def __init__(self, uri: str, user: str, password: str):
@@ -19,12 +20,12 @@ class Neo4jKnowledgeRetriever:
         
         # 初始化 Ollama LLM
         self.llm = Ollama(
-            model="gemma3:12b",
-            base_url="http://ollama:11434",
-            temperature=0.7,
-            num_predict=512,  # 增加最大生成token數
-            top_p=0.9,
-            top_k=50
+            model=OLLAMA_MODEL,
+            base_url=OLLAMA_BASE_URL,
+            temperature=MODEL_TEMPERATURE,
+            num_predict=MODEL_NUM_PREDICT,
+            top_p=MODEL_TOP_P,
+            top_k=MODEL_TOP_K
         )
         
         # 創建自定義的 Cypher prompt

@@ -1,9 +1,10 @@
 import requests
 import json
 from typing import Optional, Dict, Any
+from config import OLLAMA_BASE_URL, MODEL_TEMPERATURE, MODEL_NUM_PREDICT
 
 class OllamaClient:
-    def __init__(self, base_url: str = "http://ollama:11434"):
+    def __init__(self, base_url: str = OLLAMA_BASE_URL):
         self.base_url = base_url
         self.api_url = f"{base_url}/api"
     

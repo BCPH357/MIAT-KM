@@ -40,6 +40,7 @@ services:
     volumes:
       - ./app:/app
       - ./app/data/pdf:/app/data/pdf
+      - ./app/data/markdown:/app/data/markdown
       - ./app/data/processed:/app/data/processed
     depends_on:
       neo4j:

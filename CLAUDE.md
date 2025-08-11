@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-MIAT-KM is a Neo4j-based RAG (Retrieval-Augmented Generation) knowledge management system that integrates Neo4j knowledge graphs, LangChain, and Ollama. The system extracts knowledge triplets from PDF documents, builds knowledge graphs, and provides intelligent Q&A functionality powered by LLMs.
+MIAT-KM is a Neo4j-based RAG (Retrieval-Augmented Generation) knowledge management system that integrates Neo4j knowledge graphs, LangChain, and Ollama. The system extracts knowledge triplets from PDF and Markdown documents, builds knowledge graphs, and provides intelligent Q&A functionality powered by configurable LLMs.
 
 ## Core Architecture
 
@@ -19,9 +19,10 @@ The system follows a microservices architecture using Docker Compose with three 
 - `main.py`: Interactive menu system and application entry point
 - `rag_system.py`: Core RAG logic integrating knowledge retrieval and answer generation
 - `knowledge_retriever.py`: Knowledge retrieval with LangChain GraphCypherQAChain integration
-- `sentence_triplet_extractor.py`: PDF-to-triplets extraction using Ollama
+- `sentence_triplet_extractor.py`: File-to-triplets extraction supporting PDF and Markdown files
 - `import_to_neo4j.py`: Bulk triplet import to Neo4j
 - `ollama_client.py`: Ollama API client for LLM communication
+- `config.py`: Global configuration file for LLM models and system settings
 
 ## Development Commands
 
@@ -86,9 +87,19 @@ sudo docker-compose exec ollama ollama list
 
 ### Data Directories
 - PDF input: `./app/data/pdf/`
+- Markdown input: `./app/data/markdown/`
 - Processed data: `./app/data/processed/`
 - Neo4j data: Docker volume `neo4j_data`
 - Ollama models: Docker volume `ollama_data`
+
+### Global Configuration
+
+The system uses `config.py` for centralized configuration management:
+
+- **LLM Model**: Change `OLLAMA_MODEL` to switch between different models (default: "gemma3:12b")
+- **Ollama URL**: Configure `OLLAMA_BASE_URL` for custom Ollama instances
+- **Model Parameters**: Adjust temperature, token limits, and other LLM parameters
+- **Data Paths**: Centralized path configuration for all data directories
 
 ### Dependencies
 Core Python packages (see `app/requirements.txt`):
@@ -109,7 +120,10 @@ Core Python packages (see `app/requirements.txt`):
 
 The system provides three main functions via interactive menu:
 
-1. **Extract Triplets**: Process PDFs in `/app/data/pdf/` using Ollama Gemma3
+1. **Extract Triplets**: Process both PDF and Markdown files using configurable LLM
+   - PDF files: Place in `/app/data/pdf/`
+   - Markdown files: Place in `/app/data/markdown/`
+   - Supports automatic Markdown syntax cleaning (code blocks, headers, links, etc.)
 2. **Import to Neo4j**: Load extracted triplets into knowledge graph
 3. **RAG Q&A**: Interactive questioning with LangChain integration
 
