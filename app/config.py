@@ -3,7 +3,7 @@
 
 # LLM 模型配置
 # LLM Model Configuration
-OLLAMA_MODEL = "gemma3:12b"  # 預設模型，可以修改為任何 Ollama 支援的模型
+OLLAMA_MODEL = "gpt-oss:20b"  # 更新為新下載的模型
 OLLAMA_BASE_URL = "http://ollama:11434"
 
 # Neo4j 配置
