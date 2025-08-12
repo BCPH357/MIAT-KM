@@ -11,6 +11,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from sentence_triplet_extractor import DeepSeekTripletExtractor
 from model_adapter import get_model_adapter
 from config import OLLAMA_BASE_URL
+import requests
 
 # 測試文本
 TEST_SENTENCES = [
@@ -63,17 +64,46 @@ def test_model_adapter(model_name):
     print(f"📊 模型 {model_name} 總計抽取: {total_triplets} 個三元組")
     return total_triplets
 
+def get_available_models():
+    """獲取可用的模型列表"""
+    try:
+        response = requests.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=10)
+        response.raise_for_status()
+        
+        data = response.json()
+        models = data.get('models', [])
+        return [model.get('name', '') for model in models if model.get('name')]
+        
+    except Exception as e:
+        print(f"⚠️ 無法獲取模型列表: {e}")
+        return []
+
 def test_different_models():
     """測試不同模型的表現"""
     print("🚀 開始測試自適應三元組抽取系統")
-    print("📋 測試模型列表:")
     
-    # 測試模型列表
-    test_models = [
-        "gpt-oss:20b",    # GPT-OSS 模型（使用 JSON 格式）
-        "gemma3:12b",     # Gemma 模型（使用原有格式）
-        "unknown-model"   # 未知模型（應該使用 Gemma 適配器作為默認）
+    # 獲取可用模型
+    available_models = get_available_models()
+    print(f"📋 可用模型: {available_models}")
+    
+    # 預定義測試模型和對應的適配器類型
+    test_candidates = [
+        ("gpt-oss:20b", "GPTOSSAdapter"),    # GPT-OSS 模型（使用 JSON 格式）
+        ("gemma3:12b", "GemmaAdapter"),      # Gemma 模型（使用原有格式）
     ]
+    
+    # 只測試實際可用的模型
+    test_models = []
+    for model_name, expected_adapter in test_candidates:
+        if model_name in available_models:
+            test_models.append(model_name)
+            print(f"✅ 將測試 {model_name} (期望適配器: {expected_adapter})")
+        else:
+            print(f"⚠️ 跳過 {model_name} (不可用)")
+    
+    if not test_models:
+        print("❌ 沒有可用的測試模型")
+        return
     
     results = {}
     
