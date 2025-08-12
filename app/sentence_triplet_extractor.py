@@ -8,6 +8,7 @@ from typing import List, Tuple
 import logging
 import time
 from config import OLLAMA_MODEL, OLLAMA_BASE_URL, PDF_DIR, MARKDOWN_DIR, PROCESSED_DIR
+from model_adapter import get_model_adapter
 
 # 設置日誌
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -21,27 +22,13 @@ class DeepSeekTripletExtractor:
         self.model = model
         self.api_url = f"{base_url}/api/generate"
         
-        # 系統 prompt
-        self.system_prompt = """從句子中抽取三元組，格式：<三元組>主語|謂語|賓語</三元組>
-
-規則：
-1. 只抽取句子中明確存在的關係
-2. 主語和賓語必須是具體實體或概念
-3. 謂語是動詞或關係詞
-4. 每個三元組用 <三元組></三元組> 包圍
-5. 如果沒有明確關係，輸出：<三元組>無</三元組>
-
-例子：
-句子：張三使用Python開發網站
-輸出：
-<三元組>張三|使用|Python</三元組>
-<三元組>張三|開發|網站</三元組>
-
-句子：GRAFCET是一種控制系統設計方法
-輸出：
-<三元組>GRAFCET|是|控制系統設計方法</三元組>
-
-現在處理："""
+        # 使用模型適配器
+        self.adapter = get_model_adapter(model)
+        print(f"🔧 初始化三元組抽取器，使用模型: {model}")
+        print(f"🔧 適配器類型: {type(self.adapter).__name__}")
+        
+        # 從適配器獲取系統 prompt（向後兼容性）
+        self.system_prompt = self.adapter.get_system_prompt()
 
     def split_text_into_sentences(self, text: str) -> List[str]:
         """
@@ -68,15 +55,14 @@ class DeepSeekTripletExtractor:
         """
         prompt = f"{self.system_prompt}\n\n句子：\"{sentence}\"\n\n輸出："
         
+        # 使用適配器獲取 API 選項
+        api_options = self.adapter.get_api_options()
+        
         payload = {
             "model": self.model,
             "prompt": prompt,
             "stream": False,
-            "options": {
-                "temperature": 0.1,  # 更低溫度，Gemma3 對溫度更敏感
-                "top_p": 0.9,
-                "num_predict": 300   # 增加輸出長度，支援多個三元組
-            }
+            "options": api_options
         }
         
         # 完整的對話日誌記錄
@@ -108,8 +94,8 @@ class DeepSeekTripletExtractor:
             print(f"是否包含 >: {'是' if '>' in raw_response else '否'}")
             print("-" * 50)
             
-            # 解析三元組
-            triplets = self.parse_triplets_response(raw_response)
+            # 使用適配器解析三元組
+            triplets = self.adapter.parse_response(raw_response)
             
             # 詳細記錄解析過程
             print("🔍 三元組解析結果:")
@@ -143,67 +129,9 @@ class DeepSeekTripletExtractor:
 
     def parse_triplets_response(self, response: str) -> List[Tuple[str, str, str]]:
         """
-        解析 Gemma3 的回應，提取三元組（針對 Gemma3 優化）
+        解析三元組回應（向後兼容方法，現在委託給適配器）
         """
-        triplets = []
-        
-        try:
-            print("🔧 開始解析三元組...")
-            print(f"原始回應: 【{response}】")
-            
-            # Gemma3 不需要移除 <think> 標籤，直接處理
-            cleaned_response = response.strip()
-            
-            # 主要格式：<三元組>主語|謂語|賓語</三元組>
-            pattern = r'<三元組>(.*?)</三元組>'
-            matches = re.findall(pattern, cleaned_response, re.DOTALL)
-            print(f"<三元組></三元組> 格式匹配: {matches}")
-            
-            for match in matches:
-                content = match.strip()
-                print(f"處理匹配項: 【{content}】")
-                
-                # 跳過"無"或空內容
-                if content == "無" or not content:
-                    print(f"跳過空/無內容: {content}")
-                    continue
-                
-                # 解析 主語|謂語|賓語 格式
-                if '|' in content and content.count('|') == 2:
-                    parts = content.split('|')
-                    if len(parts) == 3:
-                        subject = parts[0].strip()
-                        predicate = parts[1].strip()
-                        obj = parts[2].strip()
-                        
-                        print(f"分解三元組: 主語=【{subject}】, 謂語=【{predicate}】, 賓語=【{obj}】")
-                        
-                        # 基本有效性檢查
-                        if (subject and predicate and obj and 
-                            len(subject) > 0 and len(predicate) > 0 and len(obj) > 0 and
-                            len(subject) <= 50 and len(obj) <= 100):  # 長度限制
-                            triplets.append((subject, predicate, obj))
-                            print(f"✅ 添加有效三元組: ({subject}, {predicate}, {obj})")
-                        else:
-                            print(f"❌ 跳過無效三元組: 空內容或過長")
-                else:
-                    print(f"❌ 格式不正確，跳過: {content}")
-            
-        except Exception as e:
-            print(f"❌ 解析過程中發生錯誤: {e}")
-            logger.error(f"解析三元組回應時發生錯誤: {e}")
-            logger.debug(f"原始回應: {response}")
-        
-        # 去重
-        unique_triplets = []
-        seen = set()
-        for triplet in triplets:
-            if triplet not in seen:
-                seen.add(triplet)
-                unique_triplets.append(triplet)
-        
-        print(f"🎯 最終結果: {len(unique_triplets)} 個唯一三元組")
-        return unique_triplets
+        return self.adapter.parse_response(response)
 
     def extract_triplets_from_text(self, text: str, source: str = "unknown") -> List[Tuple[str, str, str, str]]:
         """
