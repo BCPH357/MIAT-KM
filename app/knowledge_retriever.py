@@ -134,7 +134,7 @@ class Neo4jKnowledgeRetriever:
                 
                 # 使用自定義RAG生成詳細回答
                 detailed_answer = ollama_client.rag_generate(
-                    model="gemma3:12b",
+                    model=OLLAMA_MODEL,
                     user_query=query,
                     knowledge_context=knowledge_context,
                     temperature=0.7
