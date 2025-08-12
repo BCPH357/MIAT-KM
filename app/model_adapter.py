@@ -160,7 +160,7 @@ class GPTOSSAdapter(ModelAdapter):
         return {
             "temperature": 0.1,  # GPT-OSS 表現良好的溫度
             "top_p": 0.9,
-            "num_predict": 1000  # 增加輸出長度支援更多三元組
+            "num_predict": 2000  # 增加輸出長度避免 JSON 被截斷
         }
 
     def parse_response(self, response: str) -> List[Tuple[str, str, str]]:
@@ -170,6 +170,7 @@ class GPTOSSAdapter(ModelAdapter):
         try:
             print("🔧 開始解析三元組（GPT-OSS JSON 格式）...")
             print(f"原始回應: 【{response}】")
+            print(f"回應長度: {len(response)} 字符")
             
             # 清理回應
             cleaned_response = response.strip()
@@ -181,10 +182,16 @@ class GPTOSSAdapter(ModelAdapter):
             if start >= 0 and end > start:
                 json_str = cleaned_response[start:end]
                 print(f"提取的 JSON 字符串: 【{json_str}】")
+                print(f"JSON 字符串長度: {len(json_str)} 字符")
+                
+                # 檢查 JSON 是否完整
+                if not json_str.endswith(']'):
+                    print("⚠️ 檢測到 JSON 可能被截斷，嘗試修復...")
+                    json_str = self._repair_truncated_json(json_str)
                 
                 try:
                     parsed_json = json.loads(json_str)
-                    print(f"成功解析 JSON，包含 {len(parsed_json)} 個項目")
+                    print(f"✅ 成功解析 JSON，包含 {len(parsed_json)} 個項目")
                     
                     for i, item in enumerate(parsed_json):
                         if isinstance(item, dict):
@@ -207,11 +214,13 @@ class GPTOSSAdapter(ModelAdapter):
                             
                 except json.JSONDecodeError as e:
                     print(f"❌ JSON 解析失敗: {e}")
+                    print(f"❌ 失敗的 JSON 字符串: {json_str}")
                     # 嘗試修復常見的 JSON 錯誤
                     return self._try_repair_json(json_str)
                     
             else:
                 print("❌ 無法找到有效的 JSON 格式")
+                print(f"❌ 尋找 '[' 位置: {start}, 尋找 ']' 位置: {end-1}")
                 # 嘗試解析其他可能的格式
                 return self._parse_alternative_format(cleaned_response)
                 
@@ -230,6 +239,44 @@ class GPTOSSAdapter(ModelAdapter):
         
         print(f"🎯 最終結果（GPT-OSS）: {len(unique_triplets)} 個唯一三元組")
         return unique_triplets
+    
+    def _repair_truncated_json(self, json_str: str) -> str:
+        """修復被截斷的 JSON"""
+        print("🔧 嘗試修復被截斷的 JSON...")
+        
+        # 移除末尾不完整的項目
+        lines = json_str.split('\n')
+        repaired_lines = []
+        
+        for line in lines:
+            line = line.strip()
+            if line:
+                # 如果行包含完整的鍵值對，保留它
+                if ('"subject"' in line and '"predicate"' in line and '"object"' in line and 
+                    line.count('"') >= 6):  # 至少6個引號表示完整項目
+                    repaired_lines.append(line)
+                elif line in ['{', '}', '[', ']', ',']:
+                    repaired_lines.append(line)
+                # 跳過不完整的行
+        
+        # 重新組織 JSON
+        if repaired_lines:
+            # 確保以 [ 開始
+            if repaired_lines[0] != '[':
+                repaired_lines.insert(0, '[')
+            
+            # 確保以 ] 結束
+            if repaired_lines[-1] != ']':
+                # 移除最後的逗號
+                if repaired_lines[-1] == ',':
+                    repaired_lines.pop()
+                repaired_lines.append(']')
+            
+            repaired = '\n'.join(repaired_lines)
+            print(f"修復後的 JSON: {repaired}")
+            return repaired
+        
+        return json_str
     
     def _try_repair_json(self, json_str: str) -> List[Tuple[str, str, str]]:
         """嘗試修復損壞的 JSON"""

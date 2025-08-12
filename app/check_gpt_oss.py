@@ -77,7 +77,7 @@ def test_gpt_oss_triplet_extraction(model_name):
         "options": {
             "temperature": 0.1,
             "top_p": 0.9,
-            "num_predict": 1000
+            "num_predict": 2000  # 增加輸出長度避免 JSON 被截斷
         }
     }
     
@@ -98,8 +98,22 @@ def test_gpt_oss_triplet_extraction(model_name):
             start = response_text.find('[')
             end = response_text.rfind(']') + 1
             
+            print(f"🔍 JSON 範圍: 開始位置={start}, 結束位置={end-1}")
+            
             if start >= 0 and end > start:
                 json_str = response_text[start:end]
+                print(f"🔍 提取的 JSON 字符串: {json_str}")
+                print(f"🔍 JSON 字符串長度: {len(json_str)} 字符")
+                
+                # 檢查 JSON 是否完整
+                if not json_str.endswith(']'):
+                    print("⚠️ 檢測到 JSON 被截斷，嘗試修復...")
+                    # 簡單修復：移除不完整的最後一個項目
+                    last_complete = json_str.rfind('}')
+                    if last_complete > 0:
+                        json_str = json_str[:last_complete+1] + '\n]'
+                        print(f"🔧 修復後的 JSON: {json_str}")
+                
                 parsed_json = json.loads(json_str)
                 
                 print(f"\n✅ 成功解析 JSON，包含 {len(parsed_json)} 個三元組:")
@@ -113,10 +127,12 @@ def test_gpt_oss_triplet_extraction(model_name):
                 return True
             else:
                 print("❌ 無法找到有效的 JSON 格式")
+                print(f"❌ 回應內容: {response_text}")
                 return False
                 
         except json.JSONDecodeError as e:
             print(f"❌ JSON 解析失敗: {e}")
+            print(f"❌ 嘗試解析的 JSON: {json_str}")
             return False
             
     except Exception as e:
