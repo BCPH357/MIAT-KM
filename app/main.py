@@ -3,6 +3,7 @@ import time
 import os
 from neo4j import GraphDatabase
 from rag_system import RAGSystem
+from vector_rag_processor import VectorRAGProcessor
 from config import NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD, PDF_DIR, MARKDOWN_DIR, OLLAMA_MODEL
 
 # 連接到 Neo4j
@@ -70,8 +71,9 @@ def show_menu():
     print("1. 從文件提取三元組 (PDF 和 Markdown)")
     print("2. 將三元組導入到 Neo4j")
     print("3. RAG 問答系統")
-    print("4. 退出")
-    choice = input("請選擇操作 (1-4): ")
+    print("4. Vector RAG 文檔預處理")
+    print("5. 退出")
+    choice = input("請選擇操作 (1-5): ")
     return choice
 
 # 主函數
@@ -110,6 +112,11 @@ def main():
                     print(f"RAG 系統啟動失敗: {e}")
                 
             elif choice == '4':
+                # Vector RAG 文檔預處理
+                print("啟動 Vector RAG 文檔預處理...")
+                handle_vector_rag_preprocessing()
+                
+            elif choice == '5':
                 # 退出
                 print("應用關閉中...")
                 break
@@ -128,6 +135,135 @@ def main():
         if neo4j_driver:
             neo4j_driver.close()
             print("Neo4j 連接已關閉")
+
+def handle_vector_rag_preprocessing():
+    """
+    處理 Vector RAG 文檔預處理功能
+    """
+    try:
+        # 初始化 Vector RAG 處理器
+        print("初始化 Vector RAG 處理器...")
+        processor = VectorRAGProcessor()
+        
+        while True:
+            print("\n=== Vector RAG 文檔預處理 ===")
+            print("1. 處理所有文檔 (清空現有數據)")
+            print("2. 處理所有文檔 (增量模式)")
+            print("3. 查看數據庫統計")
+            print("4. 清空向量數據庫")
+            print("5. 測試向量搜索")
+            print("6. 返回主菜單")
+            
+            sub_choice = input("請選擇操作 (1-6): ")
+            
+            if sub_choice == '1':
+                # 處理所有文檔 (清空現有)
+                if check_files_directory():
+                    print("開始處理文檔（清空模式）...")
+                    result = processor.process_documents_from_directories(clear_existing=True)
+                    print_processing_result(result)
+                    
+            elif sub_choice == '2':
+                # 處理所有文檔 (增量模式)
+                if check_files_directory():
+                    print("開始處理文檔（增量模式）...")
+                    result = processor.process_documents_from_directories(clear_existing=False)
+                    print_processing_result(result)
+                    
+            elif sub_choice == '3':
+                # 查看數據庫統計
+                print("獲取數據庫統計信息...")
+                stats = processor.get_database_stats()
+                print_database_stats(stats)
+                
+            elif sub_choice == '4':
+                # 清空向量數據庫
+                confirm = input("確定要清空向量數據庫嗎？(y/N): ")
+                if confirm.lower() == 'y':
+                    success = processor.clear_database()
+                    if success:
+                        print("向量數據庫清空成功")
+                    else:
+                        print("向量數據庫清空失敗")
+                else:
+                    print("取消操作")
+                    
+            elif sub_choice == '5':
+                # 測試向量搜索
+                test_query = input("請輸入測試查詢: ")
+                if test_query.strip():
+                    print("執行向量搜索...")
+                    search_results = processor.search_documents(test_query, n_results=3)
+                    print_search_results(search_results)
+                    
+            elif sub_choice == '6':
+                # 返回主菜單
+                break
+                
+            else:
+                print("無效的選擇，請重新輸入")
+        
+        # 關閉處理器
+        processor.close()
+        
+    except Exception as e:
+        print(f"Vector RAG 處理器出現錯誤: {e}")
+        import traceback
+        traceback.print_exc()
+
+def print_processing_result(result):
+    """
+    打印處理結果
+    """
+    print(f"\n=== 處理結果 ===")
+    print(f"總文件數: {result['total_files']}")
+    print(f"成功處理: {result['processed_files']}")
+    print(f"總chunks: {result['total_chunks']}")
+    print(f"成功存儲: {result['successful_chunks']}")
+    print(f"處理時間: {result['processing_time']:.2f}秒")
+    print(f"Embedding時間: {result['embedding_time']:.2f}秒")
+    print(f"存儲時間: {result['storage_time']:.2f}秒")
+    
+    if result['failed_files']:
+        print(f"\n失敗文件 ({len(result['failed_files'])}個):")
+        for failed in result['failed_files']:
+            print(f"  - {failed['file']}: {failed['error']}")
+
+def print_database_stats(stats):
+    """
+    打印數據庫統計信息
+    """
+    print(f"\n=== 數據庫統計 ===")
+    print(f"集合名稱: {stats['collection_name']}")
+    print(f"總chunks數: {stats['total_chunks']}")
+    print(f"獨特文件數: {stats['unique_files']}")
+    print(f"數據庫路徑: {stats['database_path']}")
+    
+    if stats['file_types']:
+        print(f"\n文件類型統計:")
+        for file_type, count in stats['file_types'].items():
+            print(f"  {file_type}: {count} chunks")
+    
+    if 'error' in stats:
+        print(f"\n錯誤: {stats['error']}")
+
+def print_search_results(search_results):
+    """
+    打印搜索結果
+    """
+    print(f"\n=== 搜索結果 ===")
+    print(f"查詢: {search_results['query']}")
+    print(f"找到 {search_results['total_results']} 個相關文檔\n")
+    
+    for result in search_results['results']:
+        print(f"排名 {result['rank']}:")
+        print(f"  相似度: {result['similarity_score']:.3f}")
+        print(f"  來源: {result['metadata'].get('source_file', 'Unknown')}")
+        print(f"  內容預覽: {result['content'][:100]}...")
+        print("-" * 50)
+    
+    if 'error' in search_results:
+        print(f"\n搜索錯誤: {search_results['error']}")
 
 if __name__ == "__main__":
     main() 
