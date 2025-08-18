@@ -2,5 +2,6 @@ neo4j
 PyPDF2
 langchain
 langchain-community
+langchain-neo4j
 pypdf
 requests 

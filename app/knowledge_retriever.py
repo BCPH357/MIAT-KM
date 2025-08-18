@@ -2,7 +2,7 @@ from neo4j import GraphDatabase
 import re
 from typing import List, Dict, Tuple
 from langchain.chains import GraphCypherQAChain
-from langchain_community.graphs import Neo4jGraph
+from langchain_neo4j import Neo4jGraph
 from langchain_community.llms import Ollama
 from langchain.prompts.prompt import PromptTemplate
 from config import OLLAMA_MODEL, OLLAMA_BASE_URL, MODEL_TEMPERATURE, MODEL_NUM_PREDICT, MODEL_TOP_P, MODEL_TOP_K
