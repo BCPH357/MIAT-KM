@@ -1,6 +1,7 @@
 import os
 import chromadb
 from chromadb.config import Settings
+from chromadb.errors import NotFoundError
 from typing import List, Dict, Any, Optional, Union
 import logging
 import numpy as np
@@ -51,7 +52,7 @@ class VectorRetriever:
             try:
                 self.collection = self.client.get_collection(name=self.collection_name)
                 logger.info(f"成功連接到現有集合: {self.collection_name}")
-            except ValueError:
+            except (ValueError, NotFoundError):
                 # 集合不存在，創建新集合
                 self.collection = self.client.create_collection(
                     name=self.collection_name,
