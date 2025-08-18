@@ -29,6 +29,7 @@ EMBEDDING_MODEL = "Qwen/Qwen2.5-7B-Instruct"  # QWEN Embedding模型
 EMBEDDING_DEVICE = "cuda"  # 使用GPU加速，如果沒有GPU則改為"cpu"
 EMBEDDING_BATCH_SIZE = 32  # 批次處理大小
 EMBEDDING_MAX_LENGTH = 512  # 最大序列長度
+EMBEDDING_CACHE_DIR = "/root/.cache/huggingface"  # Hugging Face cache目錄
 
 # ChromaDB 配置
 # ChromaDB Configuration  

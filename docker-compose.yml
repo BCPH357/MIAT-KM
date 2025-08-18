@@ -47,6 +47,7 @@ services:
       - ./app/data/processed:/app/data/processed
       - ./app/data/chroma_db:/app/data/chroma_db
       - ./app/data/vector_db:/app/data/vector_db
+      - huggingface_cache:/root/.cache/huggingface
     depends_on:
       neo4j:
         condition: service_healthy
@@ -59,4 +60,5 @@ services:
 
 volumes:
   neo4j_data:
-  ollama_data: 
+  ollama_data:
+  huggingface_cache: 
