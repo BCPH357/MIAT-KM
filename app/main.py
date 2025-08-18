@@ -117,7 +117,8 @@ def main():
             else:
                 print("無效的選擇，請重新輸入")
             
-            input("\n按 Enter 鍵繼續...")
+            if choice not in ['4']:  # Vector RAG預處理有自己的循環，不需要暫停
+                input("\n按 Enter 鍵繼續...")
             
     except KeyboardInterrupt:
         print("\n接收到中斷信號，應用關閉中...")

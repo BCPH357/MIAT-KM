@@ -21,3 +21,22 @@ MODEL_TOP_K = 50
 PDF_DIR = "/app/data/pdf"
 MARKDOWN_DIR = "/app/data/markdown"
 PROCESSED_DIR = "/app/data/processed"
+VECTOR_DB_DIR = "/app/data/vector_db"
+
+# Vector Embedding 配置
+# Vector Embedding Configuration
+EMBEDDING_MODEL = "Qwen/Qwen2.5-7B-Instruct"  # QWEN Embedding模型
+EMBEDDING_DEVICE = "cuda"  # 使用GPU加速，如果沒有GPU則改為"cpu"
+EMBEDDING_BATCH_SIZE = 32  # 批次處理大小
+EMBEDDING_MAX_LENGTH = 512  # 最大序列長度
+
+# ChromaDB 配置
+# ChromaDB Configuration  
+CHROMA_DB_PATH = "/app/data/chroma_db"
+CHROMA_COLLECTION_NAME = "miat_documents"
+
+# Document Chunking 配置
+# Document Chunking Configuration
+CHUNK_SIZE = 512  # 每個chunk的最大字符數
+CHUNK_OVERLAP = 50  # chunk之間的重疊字符數
+MIN_CHUNK_SIZE = 100  # 最小chunk大小

@@ -1,5 +1,6 @@
 from knowledge_retriever import Neo4jKnowledgeRetriever
 from ollama_client import OllamaClient
+from vector_rag_processor import VectorRAGProcessor
 import time
 from typing import Dict, Any
 from config import NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD, OLLAMA_BASE_URL, OLLAMA_MODEL
@@ -16,6 +17,15 @@ class RAGSystem:
         self.ollama_client = OllamaClient(ollama_url)
         self.model_name = model_name
         
+        # 初始化Vector RAG處理器
+        try:
+            self.vector_rag_processor = VectorRAGProcessor()
+            self.vector_available = True
+        except Exception as e:
+            print(f"警告: Vector RAG初始化失敗: {e}")
+            self.vector_rag_processor = None
+            self.vector_available = False
+        
         # 檢查模型是否可用
         if not self.ollama_client.check_model_available(model_name):
             print(f"警告: 模型 {model_name} 不可用")
@@ -23,7 +33,7 @@ class RAGSystem:
             if not available_models.get("error"):
                 print("可用模型:", [m["name"] for m in available_models.get("models", [])])
     
-    def answer_question(self, user_query: str, use_rag: bool = True, use_langchain: bool = False, use_hybrid: bool = False) -> Dict[str, Any]:
+    def answer_question(self, user_query: str, use_rag: bool = True, use_langchain: bool = False, use_hybrid: bool = False, use_vector: bool = False, use_hybrid_all: bool = False) -> Dict[str, Any]:
         """
         回答用戶問題
         """

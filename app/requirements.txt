@@ -5,4 +5,9 @@ langchain-community
 langchain-neo4j
 langchain-ollama
 pypdf
-requests 
+requests
+chromadb
+transformers
+torch
+sentence-transformers
+numpy 

@@ -45,6 +45,8 @@ services:
       - ./app/data/pdf:/app/data/pdf
       - ./app/data/markdown:/app/data/markdown
       - ./app/data/processed:/app/data/processed
+      - ./app/data/chroma_db:/app/data/chroma_db
+      - ./app/data/vector_db:/app/data/vector_db
     depends_on:
       neo4j:
         condition: service_healthy
