@@ -1,166 +1,144 @@
-# CLAUDE.md
+# MIAT-KM: 雙重RAG知識管理系統
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+**快速理解**: Neo4j知識圖譜 + Vector RAG的雙重檢索系統，支持PDF/Markdown處理，使用QWEN3-Embedding和ChromaDB。
 
-## Project Overview
+## 🏗️ 系統架構
 
-MIAT-KM is a Neo4j-based RAG (Retrieval-Augmented Generation) knowledge management system that integrates Neo4j knowledge graphs, LangChain, and Ollama. The system extracts knowledge triplets from PDF and Markdown documents, builds knowledge graphs, and provides intelligent Q&A functionality powered by configurable LLMs.
+### Docker服務
+- **Neo4j**: 知識圖譜數據庫 (UI: 7475, Bolt: 7688, neo4j/password123)
+- **Ollama**: 本地LLM服務 (11435端口, GPU加速)
+- **App**: Python主應用 (包含所有邏輯)
 
-## Core Architecture
+### 核心功能模塊
+```
+main.py                    # 5選項交互菜單
+├── 1. 三元組提取           # sentence_triplet_extractor.py
+├── 2. 導入Neo4j           # import_to_neo4j.py  
+├── 3. RAG問答             # rag_system.py (多模式)
+├── 4. Vector RAG預處理    # vector_rag_processor.py
+└── 5. 退出
 
-The system follows a microservices architecture using Docker Compose with three main services:
+config.py                  # 全局配置中心
+knowledge_retriever.py     # Neo4j + LangChain檢索
+ollama_client.py          # LLM通信
+```
 
-- **Neo4j**: Knowledge graph database (ports 7475:7474 for UI, 7688:7687 for Bolt)
-- **Ollama**: Local LLM service with GPU acceleration (port 11435:11434)  
-- **App**: Python application containing the main logic
+### Vector RAG組件 (新增)
+```
+vector_embedder.py        # QWEN3-Embedding-8B封裝
+document_chunker.py       # 智能文檔分塊
+vector_retriever.py       # ChromaDB客戶端  
+vector_rag_processor.py   # 整合處理流程
+```
 
-### Key Components
+## ⚡ 快速開始
 
-- `main.py`: Interactive menu system and application entry point
-- `rag_system.py`: Core RAG logic integrating knowledge retrieval and answer generation
-- `knowledge_retriever.py`: Knowledge retrieval with LangChain GraphCypherQAChain integration
-- `sentence_triplet_extractor.py`: File-to-triplets extraction supporting PDF and Markdown files
-- `import_to_neo4j.py`: Bulk triplet import to Neo4j
-- `ollama_client.py`: Ollama API client for LLM communication
-- `config.py`: Global configuration file for LLM models and system settings
-
-## Development Commands
-
-### Docker Operations
+### 1. 啟動系統
 ```bash
-# Start all services
 sudo docker-compose up -d
-
-# Check service status
-sudo docker-compose ps
-
-# View logs
-sudo docker-compose logs [service_name]
-
-# Stop services
-sudo docker-compose down
-
-# Rebuild specific service
-sudo docker-compose build app
-
-# Restart specific service
-sudo docker-compose restart app
-```
-
-### Container Access
-```bash
-# Access application container
-sudo docker-compose exec app bash
-
-# Access Neo4j container
-sudo docker-compose exec neo4j bash
-
-# Access Ollama container
-sudo docker-compose exec ollama bash
-```
-
-### Application Execution
-```bash
-# Run main application
 sudo docker-compose exec app python main.py
-
-# Run specific components
-sudo docker-compose exec app python sentence_triplet_extractor.py
-sudo docker-compose exec app python import_to_neo4j.py
 ```
 
-### Model Management
+### 2. 處理文檔
 ```bash
-# Download LLM model (inside ollama container)
-sudo docker-compose exec ollama ollama pull gemma3:12b
+# 將PDF/MD文件放入對應目錄
+./app/data/pdf/
+./app/data/markdown/
 
-# List available models
-sudo docker-compose exec ollama ollama list
+# 選項1: 提取三元組
+# 選項2: 導入Neo4j  
+# 選項4: Vector RAG預處理 (新增)
 ```
 
-## System Configuration
-
-### Service Endpoints
-- Neo4j Browser: http://localhost:7475 (neo4j/password123)
-- Ollama API: http://localhost:11435
-- Neo4j Bolt: bolt://localhost:7688
-
-### Data Directories
-- PDF input: `./app/data/pdf/`
-- Markdown input: `./app/data/markdown/`
-- Processed data: `./app/data/processed/`
-- Neo4j data: Docker volume `neo4j_data`
-- Ollama models: Docker volume `ollama_data`
-
-### Global Configuration
-
-The system uses `config.py` for centralized configuration management:
-
-- **LLM Model**: Change `OLLAMA_MODEL` to switch between different models (default: "gemma3:12b")
-- **Ollama URL**: Configure `OLLAMA_BASE_URL` for custom Ollama instances
-- **Model Parameters**: Adjust temperature, token limits, and other LLM parameters
-- **Data Paths**: Centralized path configuration for all data directories
-
-### Dependencies
-Core Python packages (see `app/requirements.txt`):
-- neo4j: Neo4j database driver
-- langchain: LLM application framework
-- langchain-community: Community integrations
-- PyPDF2/pypdf: PDF processing
-- requests: HTTP client
-
-## Development Workflow
-
-1. **Code Changes**: Modify Python files in `./app/` (changes are live-mounted)
-2. **Restart Service**: `sudo docker-compose restart app` to reload changes
-3. **Add Dependencies**: Update `requirements.txt` and rebuild with `docker-compose build app`
-4. **Test Changes**: Run `sudo docker-compose exec app python main.py`
-
-## RAG System Usage
-
-The system provides three main functions via interactive menu:
-
-1. **Extract Triplets**: Process both PDF and Markdown files using configurable LLM
-   - PDF files: Place in `/app/data/pdf/`
-   - Markdown files: Place in `/app/data/markdown/`
-   - Supports automatic Markdown syntax cleaning (code blocks, headers, links, etc.)
-2. **Import to Neo4j**: Load extracted triplets into knowledge graph
-3. **RAG Q&A**: Interactive questioning with LangChain integration
-
-### Q&A Commands
-- Direct question: Auto-retrieval and answer generation
-- `langchain <question>`: Show detailed retrieval process
-- `quit`/`exit`: Exit Q&A mode
-
-## GPU Acceleration
-
-The system supports NVIDIA GPU acceleration for Ollama. Ensure nvidia-container-toolkit is installed and configured for optimal performance with the Gemma3 12B model.
-
-## Data Backup
-
+### 3. RAG問答 (選項3)
 ```bash
-# Backup Neo4j database
-sudo docker-compose exec neo4j neo4j-admin database dump neo4j /data/neo4j.dump
-
-# Backup processed data
-cp -r app/data/processed/ backup/
+# 直接輸入問題 → 知識圖譜LangChain
+# hybrid <問題> → 圖譜混合RAG
+# vector <問題> → 純向量RAG
+# hybrid-all <問題> → 雙重RAG (推薦)
+# compare <問題> → 比較所有模式
 ```
 
-## Git and GitHub Configuration
+## 🔧 關鍵配置
 
-### Commit and Push Preferences
+### config.py 重要設定
+```python
+# LLM配置
+OLLAMA_MODEL = "gpt-oss:20b"
+OLLAMA_BASE_URL = "http://ollama:11434"
 
-When working with this repository, Claude should follow these guidelines:
+# Vector Embedding配置
+EMBEDDING_MODEL = "Qwen/Qwen3-Embedding-8B"  # 專業embedding模型
+EMBEDDING_DEVICE = "cuda"                      # GPU加速
+CHROMA_DB_PATH = "/app/data/chroma_db"        # 向量數據庫
 
-1. **Target Branch**: Always push changes to the `main` branch
-2. **Commit Messages**: Use clean, descriptive commit messages WITHOUT co-authored information
-3. **No Co-Author Tags**: Do not include "Generated with Claude Code" or "Co-Authored-By: Claude" in commit messages
+# 數據目錄
+PDF_DIR = "/app/data/pdf"
+MARKDOWN_DIR = "/app/data/markdown"
+```
 
-### Example Commit Commands
+### Docker Volumes持久化
+```yaml
+volumes:
+  - neo4j_data:/data                    # Neo4j數據
+  - ollama_data:/root/.ollama           # LLM模型
+  - huggingface_cache:/root/.cache      # Embedding模型緩存
+  - ./app/data/chroma_db:/app/data/chroma_db  # 向量數據庫
+```
 
+## 🚀 RAG模式對比
+
+| 模式 | 檢索方式 | 適用場景 | 命令 |
+|------|----------|----------|------|
+| **知識圖譜** | 結構化關係 | 邏輯推理、實體關係 | 直接輸入 |
+| **向量RAG** | 語義相似度 | 內容檢索、模糊匹配 | `vector <問題>` |
+| **雙重RAG** | 圖譜+向量 | 全面檢索、最佳效果 | `hybrid-all <問題>` |
+
+## 🛠️ 開發工作流
+
+### 代碼修改
 ```bash
-# Standard commit without co-author information
-git add .
-git commit -m "Fix LangChain deprecation warnings and Neo4j APOC configuration"
-git push origin main
+# 修改 ./app/ 下的Python文件 (實時映射)
+sudo docker-compose restart app  # 重載變更
 ```
+
+### 依賴更新
+```bash
+# 更新 app/requirements.txt
+sudo docker-compose build app
+sudo docker-compose up -d
+```
+
+### 問題排除
+```bash
+sudo docker-compose logs app          # 查看應用日誌
+sudo docker-compose exec app bash     # 進入容器調試
+```
+
+## 📊 數據流程
+
+### 文檔 → 知識圖譜
+1. PDF/MD → 三元組提取 (LLM)
+2. 三元組 → Neo4j導入
+3. 問答 → Cypher查詢檢索
+
+### 文檔 → 向量數據庫
+1. PDF/MD → 智能分塊 (語義完整)
+2. 分塊 → QWEN3-Embedding
+3. 向量 → ChromaDB存儲
+4. 問答 → 餘弦相似度檢索
+
+## 🔒 Git規範
+
+- **目標分支**: 始終推送到 `main`
+- **提交格式**: 簡潔描述，無co-author標籤
+- **示例**: `git commit -m "Add vector RAG functionality"`
+
+## 💡 系統特色
+
+✅ **雙重檢索**: 知識圖譜 + 向量檢索互補  
+✅ **多語言**: 支持中英文PDF/Markdown  
+✅ **GPU加速**: QWEN3-Embedding + Ollama  
+✅ **持久化**: 模型緩存避免重複下載  
+✅ **交互式**: 5選項菜單 + 多模式問答  
+✅ **可擴展**: 模塊化架構，易於擴展
