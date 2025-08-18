@@ -145,3 +145,22 @@ sudo docker-compose exec neo4j neo4j-admin database dump neo4j /data/neo4j.dump
 # Backup processed data
 cp -r app/data/processed/ backup/
 ```
+
+## Git and GitHub Configuration
+
+### Commit and Push Preferences
+
+When working with this repository, Claude should follow these guidelines:
+
+1. **Target Branch**: Always push changes to the `main` branch
+2. **Commit Messages**: Use clean, descriptive commit messages WITHOUT co-authored information
+3. **No Co-Author Tags**: Do not include "Generated with Claude Code" or "Co-Authored-By: Claude" in commit messages
+
+### Example Commit Commands
+
+```bash
+# Standard commit without co-author information
+git add .
+git commit -m "Fix LangChain deprecation warnings and Neo4j APOC configuration"
+git push origin main
+```

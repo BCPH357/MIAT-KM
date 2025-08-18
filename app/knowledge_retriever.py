@@ -1,9 +1,9 @@
 from neo4j import GraphDatabase
 import re
 from typing import List, Dict, Tuple
-from langchain.chains import GraphCypherQAChain
+from langchain_neo4j import GraphCypherQAChain
 from langchain_neo4j import Neo4jGraph
-from langchain_community.llms import Ollama
+from langchain_ollama import OllamaLLM
 from langchain.prompts.prompt import PromptTemplate
 from config import OLLAMA_MODEL, OLLAMA_BASE_URL, MODEL_TEMPERATURE, MODEL_NUM_PREDICT, MODEL_TOP_P, MODEL_TOP_K
 
@@ -19,7 +19,7 @@ class Neo4jKnowledgeRetriever:
         )
         
         # 初始化 Ollama LLM
-        self.llm = Ollama(
+        self.llm = OllamaLLM(
             model=OLLAMA_MODEL,
             base_url=OLLAMA_BASE_URL,
             temperature=MODEL_TEMPERATURE,
