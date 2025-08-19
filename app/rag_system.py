@@ -233,14 +233,12 @@ class RAGSystem:
         互動式問答 - 簡化版，直接使用 LangChain
         """
         print("=== RAG 知識問答系統 (增強版) ===")
-        print("💡 使用 LangChain + Ollama + Neo4j 知識圖譜 + Vector RAG")
+        print("💡 使用 Ollama + Neo4j 知識圖譜 + Vector RAG")
         print("\n🔧 可用命令:")
-        print("  直接輸入問題 → 使用改進的LangChain模式")
-        print("  'hybrid <問題>' → 使用混合RAG模式(推薦)")
+        print("  'KG <問題>' → 使用知識圖譜模式")
         print("  'vector <問題>' → 使用純向量RAG模式")
         print("  'hybrid-all <問題>' → 使用全混合模式(知識圖譜+向量)")
-        print("  'langchain <問題>' → 使用原始LangChain模式")
-        print("  'compare <問題>' → 比較多種模式")
+        print("  'compare <問題>' → 比較所有模式")
         print("  'quit' 或 'exit' → 退出系統")
         
         if self.vector_available:
@@ -258,21 +256,12 @@ class RAGSystem:
                 if user_input.lower() in ['quit', 'exit', '退出']:
                     break
                 
-                elif user_input.startswith('hybrid '):
-                    # 使用混合RAG模式
-                    query = user_input[7:].strip()
+                elif user_input.startswith('KG ') or user_input.startswith('kg '):
+                    # 使用知識圖譜模式
+                    query = user_input[3:].strip()
                     if query:
                         result = self.answer_question(query, use_rag=False, use_langchain=False, use_hybrid=True)
                         self._print_hybrid_result(result)
-                    else:
-                        print("請提供問題")
-                
-                elif user_input.startswith('langchain '):
-                    # 使用原始LangChain模式
-                    query = user_input[10:].strip()
-                    if query:
-                        result = self.answer_question(query, use_rag=False, use_langchain=True)
-                        self._print_langchain_result(result)
                     else:
                         print("請提供問題")
                 
@@ -303,17 +292,20 @@ class RAGSystem:
                         print("請提供問題")
                 
                 elif user_input.startswith('compare '):
-                    # 比較多種模式
+                    # 比較三種模式
                     query = user_input[8:].strip()
                     if query:
-                        self._compare_all_modes(query)
+                        self._compare_three_modes(query)
                     else:
                         print("請提供問題")
                 
                 elif user_input:
-                    # 直接使用改進的LangChain模式
-                    result = self.answer_question(user_input, use_rag=False, use_langchain=True)
-                    self._print_simple_langchain_answer(result)
+                    # 提示用戶使用正確的命令格式
+                    print("請使用以下命令格式:")
+                    print("  'KG <問題>' - 知識圖譜模式")
+                    print("  'vector <問題>' - 向量RAG模式") 
+                    print("  'hybrid-all <問題>' - 全混合模式")
+                    print("  'compare <問題>' - 比較所有模式")
                 
             except KeyboardInterrupt:
                 break
@@ -445,11 +437,11 @@ class RAGSystem:
     
     def _print_hybrid_result(self, result: Dict[str, Any]):
         """
-        格式化打印混合RAG結果
+        格式化打印知識圖譜結果
         """
         print(f"\n{'='*60}")
         print(f"問題: {result['query']}")
-        print(f"【混合RAG模式】LangChain檢索 + 自定義生成")
+        print(f"【知識圖譜模式】")
         print(f"{'='*60}")
         
         if result['cypher_query']:
@@ -470,7 +462,7 @@ class RAGSystem:
         else:
             print(f"\n📊 沒有檢索到相關知識")
         
-        print(f"\n🤖 混合RAG生成的詳細回答:")
+        print(f"\n🤖 知識圖譜回答:")
         print(f"{result['answer']}")
         
         print(f"\n⏱️ 執行時間: {result['total_time']:.2f} 秒")
@@ -568,46 +560,39 @@ class RAGSystem:
         print(f"\n⏱️ 執行時間: {result['total_time']:.2f} 秒")
         print(f"   (檢索: {result['retrieval_time']:.2f}s, 生成: {result['generation_time']:.2f}s)")
     
-    def _compare_all_modes(self, query: str):
+    def _compare_three_modes(self, query: str):
         """
-        比較所有可用模式的回答
+        比較三種可用模式的回答: KG, vector, hybrid-all
         """
-        print(f"\n{'='*80}")
-        print(f"多模式比較：{query}")
-        print(f"{'='*80}")
+        print(f"\n{'='*70}")
+        print(f"三模式比較：{query}")
+        print(f"{'='*70}")
         
-        # 1. 改進的LangChain模式
-        print(f"\n【模式一：知識圖譜LangChain】")
+        # 1. 知識圖譜模式
+        print(f"\n【模式一：知識圖譜 (KG)】")
         print("-" * 40)
-        result1 = self.answer_question(query, use_rag=False, use_langchain=True)
+        result1 = self.answer_question(query, use_rag=False, use_langchain=False, use_hybrid=True)
         print(f"回答: {result1['answer'][:200]}...")
         print(f"時間: {result1['total_time']:.2f}s | 知識項目: {result1['knowledge_items_count']}")
         
-        # 2. 混合RAG模式
-        print(f"\n【模式二：知識圖譜混合RAG】")
-        print("-" * 40)
-        result2 = self.answer_question(query, use_rag=False, use_langchain=False, use_hybrid=True)
-        print(f"回答: {result2['answer'][:200]}...")
-        print(f"時間: {result2['total_time']:.2f}s | 知識項目: {result2['knowledge_items_count']}")
-        
-        # 3. 純向量RAG模式
+        # 2. 純向量RAG模式
         if self.vector_available:
-            print(f"\n【模式三：純向量RAG】")
+            print(f"\n【模式二：純向量RAG (vector)】")
             print("-" * 40)
-            result3 = self.answer_question(query, use_rag=False, use_langchain=False, use_vector=True)
+            result2 = self.answer_question(query, use_rag=False, use_langchain=False, use_vector=True)
+            print(f"回答: {result2['answer'][:200]}...")
+            print(f"時間: {result2['total_time']:.2f}s | 知識項目: {result2['knowledge_items_count']}")
+            
+            # 3. 全混合模式
+            print(f"\n【模式三：全混合RAG (hybrid-all)】")
+            print("-" * 40)
+            result3 = self.answer_question(query, use_rag=False, use_langchain=False, use_hybrid_all=True)
             print(f"回答: {result3['answer'][:200]}...")
             print(f"時間: {result3['total_time']:.2f}s | 知識項目: {result3['knowledge_items_count']}")
             
-            # 4. 全混合模式
-            print(f"\n【模式四：全混合RAG (推薦)】")
-            print("-" * 40)
-            result4 = self.answer_question(query, use_rag=False, use_langchain=False, use_hybrid_all=True)
-            print(f"回答: {result4['answer'][:200]}...")
-            print(f"時間: {result4['total_time']:.2f}s | 知識項目: {result4['knowledge_items_count']}")
-            
-            print(f"\n💡 推薦使用全混合RAG模式獲得最佳效果")
+            print(f"\n💡 三種模式各有特色，可根據需求選擇")
         else:
-            print(f"\n⚠️  向量RAG不可用，僅比較知識圖譜模式")
+            print(f"\n⚠️  向量RAG不可用，僅顯示知識圖譜模式結果")
     
     def close(self):
         """
