@@ -68,7 +68,7 @@ class RAGSystem:
             vector_results = []
             if self.vector_available:
                 try:
-                    vector_search = self.vector_rag_processor.search_documents(user_query, n_results=3)
+                    vector_search = self.vector_rag_processor.search_documents(user_query, n_results=5)
                     vector_results = vector_search['results']
                 except Exception as e:
                     print(f"向量檢索失敗: {e}")

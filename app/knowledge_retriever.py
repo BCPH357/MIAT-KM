@@ -30,38 +30,25 @@ class Neo4jKnowledgeRetriever:
         
         # 創建自定義的 Cypher prompt
         custom_cypher_prompt = PromptTemplate.from_template("""
-你是圖資料庫的專家，根據用戶的問題寫一個 Cypher 查詢來查詢知識圖譜。
+Task: 根據用戶問題生成Cypher查詢語句
 
-重要注意事項：
-1. 圖中的實體名稱可能含有空格（例如："MIAT 方法論"），請使用模糊比對避免空格造成錯誤
-2. 優先使用 CONTAINS 進行模糊匹配，而不是精確的 = 匹配
-3. 使用 toLower() 進行不區分大小寫的查詢
-4. 如果查詢多個關鍵詞，可以將它們分開查詢
+Schema:
+- 節點: Entity (屬性: name)
+- 關係: RELATION (屬性: name, source)
 
-圖結構：
-- 節點標籤：Entity (屬性: name)
-- 關係類型：RELATION (屬性: name, source)
+Rules:
+1. 只返回Cypher查詢語句，不要其他說明文字
+2. 使用 CONTAINS 和 toLower() 進行模糊匹配
+3. 提取用戶問題中的關鍵詞進行查詢
+4. 限制返回結果數量 LIMIT 10
 
-查詢模式範例：
-1. 單一實體查詢：
-   MATCH (s:Entity)-[r:RELATION]->(o:Entity)
-   WHERE toLower(s.name) CONTAINS toLower("關鍵詞")
-   RETURN s.name as subject, r.name as predicate, o.name as object
+Query Templates:
+- 單一關鍵詞: MATCH (s:Entity)-[r:RELATION]->(o:Entity) WHERE toLower(s.name) CONTAINS toLower("keyword") OR toLower(o.name) CONTAINS toLower("keyword") RETURN s.name as subject, r.name as predicate, o.name as object LIMIT 10
+- 多關鍵詞: MATCH (s:Entity)-[r:RELATION]->(o:Entity) WHERE toLower(s.name) CONTAINS toLower("keyword1") OR toLower(o.name) CONTAINS toLower("keyword1") RETURN s.name as subject, r.name as predicate, o.name as object LIMIT 10
 
-2. 多關鍵詞查詢：
-   MATCH (s:Entity)-[r:RELATION]->(o:Entity)
-   WHERE toLower(s.name) CONTAINS toLower("關鍵詞1") AND toLower(s.name) CONTAINS toLower("關鍵詞2")
-   RETURN s.name as subject, r.name as predicate, o.name as object
+Question: {question}
 
-3. 雙向查詢（主語或賓語）：
-   MATCH (s:Entity)-[r:RELATION]->(o:Entity)
-   WHERE toLower(s.name) CONTAINS toLower("關鍵詞") OR toLower(o.name) CONTAINS toLower("關鍵詞")
-   RETURN s.name as subject, r.name as predicate, o.name as object
-
-用戶問題: {question}
-
-請生成適當的 Cypher 查詢：
-""")
+Cypher:""")
 
         # 創建自定義的 QA prompt
         custom_qa_prompt = PromptTemplate.from_template("""
