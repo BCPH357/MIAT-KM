@@ -190,7 +190,7 @@ class RAGSystem:
                     # 使用知識圖譜模式
                     query = user_input[3:].strip()
                     if query:
-                        result = self.answer_question(query, use_rag=False, use_langchain=False, use_hybrid=True)
+                        result = self.answer_question(query, use_hybrid=True)
                         self._print_hybrid_result(result)
                     else:
                         print("請提供問題")
@@ -200,7 +200,7 @@ class RAGSystem:
                     query = user_input[7:].strip()
                     if query:
                         if self.vector_available:
-                            result = self.answer_question(query, use_rag=False, use_langchain=False, use_vector=True)
+                            result = self.answer_question(query, use_vector=True)
                             self._print_vector_result(result)
                         else:
                             print("向量RAG系統不可用")
@@ -212,11 +212,11 @@ class RAGSystem:
                     query = user_input[11:].strip()
                     if query:
                         if self.vector_available:
-                            result = self.answer_question(query, use_rag=False, use_langchain=False, use_hybrid_all=True)
+                            result = self.answer_question(query, use_hybrid_all=True)
                             self._print_hybrid_all_result(result)
                         else:
                             print("向量RAG系統不可用，將使用知識圖譜模式")
-                            result = self.answer_question(query, use_rag=False, use_langchain=False, use_hybrid=True)
+                            result = self.answer_question(query, use_hybrid=True)
                             self._print_hybrid_result(result)
                     else:
                         print("請提供問題")
@@ -350,7 +350,7 @@ class RAGSystem:
         # 1. 知識圖譜模式
         print(f"\n【模式一：知識圖譜 (KG)】")
         print("-" * 40)
-        result1 = self.answer_question(query, use_rag=False, use_langchain=False, use_hybrid=True)
+        result1 = self.answer_question(query, use_hybrid=True)
         print(f"回答: {result1['answer'][:500]}...")
         print(f"時間: {result1['total_time']:.2f}s | 知識項目: {result1['knowledge_items_count']}")
         
@@ -358,14 +358,14 @@ class RAGSystem:
         if self.vector_available:
             print(f"\n【模式二：純向量RAG (vector)】")
             print("-" * 40)
-            result2 = self.answer_question(query, use_rag=False, use_langchain=False, use_vector=True)
+            result2 = self.answer_question(query, use_vector=True)
             print(f"回答: {result2['answer'][:500]}...")
             print(f"時間: {result2['total_time']:.2f}s | 知識項目: {result2['knowledge_items_count']}")
             
             # 3. 全混合模式
             print(f"\n【模式三：全混合RAG (hybrid-all)】")
             print("-" * 40)
-            result3 = self.answer_question(query, use_rag=False, use_langchain=False, use_hybrid_all=True)
+            result3 = self.answer_question(query, use_hybrid_all=True)
             print(f"回答: {result3['answer'][:500]}...")
             print(f"時間: {result3['total_time']:.2f}s | 知識項目: {result3['knowledge_items_count']}")
             
