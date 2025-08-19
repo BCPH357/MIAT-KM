@@ -40,11 +40,11 @@ Rules:
 1. 只返回Cypher查詢語句，不要其他說明文字
 2. 使用 CONTAINS 和 toLower() 進行模糊匹配
 3. 提取用戶問題中的關鍵詞進行查詢
-4. 限制返回結果數量 LIMIT 10
+4. 限制返回結果數量 LIMIT 20
 
 Query Templates:
-- 單一關鍵詞: MATCH (s:Entity)-[r:RELATION]->(o:Entity) WHERE toLower(s.name) CONTAINS toLower("keyword") OR toLower(o.name) CONTAINS toLower("keyword") RETURN s.name as subject, r.name as predicate, o.name as object LIMIT 10
-- 多關鍵詞: MATCH (s:Entity)-[r:RELATION]->(o:Entity) WHERE toLower(s.name) CONTAINS toLower("keyword1") OR toLower(o.name) CONTAINS toLower("keyword1") RETURN s.name as subject, r.name as predicate, o.name as object LIMIT 10
+- 單一關鍵詞: MATCH (s:Entity)-[r:RELATION]->(o:Entity) WHERE toLower(s.name) CONTAINS toLower("keyword") OR toLower(o.name) CONTAINS toLower("keyword") RETURN s.name as subject, r.name as predicate, o.name as object LIMIT 20
+- 多關鍵詞: MATCH (s:Entity)-[r:RELATION]->(o:Entity) WHERE toLower(s.name) CONTAINS toLower("keyword1") OR toLower(o.name) CONTAINS toLower("keyword1") RETURN s.name as subject, r.name as predicate, o.name as object LIMIT 20
 
 Question: {question}
 

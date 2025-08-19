@@ -22,19 +22,23 @@ class OllamaClient:
             "prompt": prompt,
             "stream": stream,
             "options": {
-                "temperature": temperature
+                "temperature": temperature,
+                "num_predict": -1  # 預設為無限制
             }
         }
         
-        if max_tokens:
+        if max_tokens and max_tokens > 0:
             payload["options"]["num_predict"] = max_tokens
+        else:
+            # 不設置num_predict限制，讓模型自由生成
+            payload["options"]["num_predict"] = -1
         
         try:
             response = requests.post(
                 f"{self.api_url}/generate",
                 json=payload,
                 headers={"Content-Type": "application/json"},
-                timeout=120  # 2分鐘超時
+                timeout=600  # 10分鐘超時，給長文本生成更多時間
             )
             response.raise_for_status()
             
@@ -64,7 +68,8 @@ class OllamaClient:
             "messages": messages,
             "stream": stream,
             "options": {
-                "temperature": temperature
+                "temperature": temperature,
+                "num_predict": -1  # 預設為無限制
             }
         }
         
@@ -73,7 +78,7 @@ class OllamaClient:
                 f"{self.api_url}/chat",
                 json=payload,
                 headers={"Content-Type": "application/json"},
-                timeout=120
+                timeout=600  # 10分鐘超時，給長文本生成更多時間
             )
             response.raise_for_status()
             

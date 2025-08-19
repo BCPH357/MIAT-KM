@@ -258,7 +258,7 @@ def print_search_results(search_results):
         print(f"排名 {result['rank']}:")
         print(f"  相似度: {result['similarity_score']:.3f}")
         print(f"  來源: {result['metadata'].get('source_file', 'Unknown')}")
-        print(f"  內容預覽: {result['content'][:100]}...")
+        print(f"  內容預覽: {result['content'][:500]}...")
         print("-" * 50)
     
     if 'error' in search_results:

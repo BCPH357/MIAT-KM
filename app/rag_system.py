@@ -78,7 +78,7 @@ class RAGSystem:
             if vector_results:
                 combined_context += "\n向量檢索結果:\n"
                 for i, vr in enumerate(vector_results, 1):
-                    combined_context += f"{i}. {vr['content'][:200]}... (來源: {vr['metadata'].get('source_file', 'Unknown')})\n"
+                    combined_context += f"{i}. {vr['content'][:1000]}... (來源: {vr['metadata'].get('source_file', 'Unknown')})\n"
             
             # 使用組合上下文生成回答
             generation_start = time.time()
@@ -289,7 +289,7 @@ class RAGSystem:
         if result['vector_results']:
             print(f"\n📊 從向量數據庫檢索到的知識 ({len(result['vector_results'])} 項):")
             for i, vr in enumerate(result['vector_results'], 1):
-                print(f"   {i}. [相似度: {vr['similarity_score']:.3f}] {vr['content'][:100]}...")
+                print(f"   {i}. [相似度: {vr['similarity_score']:.3f}] {vr['content'][:500]}...")
                 print(f"      來源: {vr['metadata'].get('source_file', 'Unknown')}")
         else:
             print(f"\n📊 沒有檢索到相關知識")
@@ -330,7 +330,7 @@ class RAGSystem:
         if result['vector_results']:
             print(f"\n🔍 向量檢索結果 ({len(result['vector_results'])} 項):")
             for i, vr in enumerate(result['vector_results'], 1):
-                print(f"   {i}. [相似度: {vr['similarity_score']:.3f}] {vr['content'][:80]}...")
+                print(f"   {i}. [相似度: {vr['similarity_score']:.3f}] {vr['content'][:500]}...")
                 print(f"      來源: {vr['metadata'].get('source_file', 'Unknown')}")
         
         print(f"\n🤖 全混合RAG回答:")
@@ -351,7 +351,7 @@ class RAGSystem:
         print(f"\n【模式一：知識圖譜 (KG)】")
         print("-" * 40)
         result1 = self.answer_question(query, use_rag=False, use_langchain=False, use_hybrid=True)
-        print(f"回答: {result1['answer'][:200]}...")
+        print(f"回答: {result1['answer'][:500]}...")
         print(f"時間: {result1['total_time']:.2f}s | 知識項目: {result1['knowledge_items_count']}")
         
         # 2. 純向量RAG模式
@@ -359,14 +359,14 @@ class RAGSystem:
             print(f"\n【模式二：純向量RAG (vector)】")
             print("-" * 40)
             result2 = self.answer_question(query, use_rag=False, use_langchain=False, use_vector=True)
-            print(f"回答: {result2['answer'][:200]}...")
+            print(f"回答: {result2['answer'][:500]}...")
             print(f"時間: {result2['total_time']:.2f}s | 知識項目: {result2['knowledge_items_count']}")
             
             # 3. 全混合模式
             print(f"\n【模式三：全混合RAG (hybrid-all)】")
             print("-" * 40)
             result3 = self.answer_question(query, use_rag=False, use_langchain=False, use_hybrid_all=True)
-            print(f"回答: {result3['answer'][:200]}...")
+            print(f"回答: {result3['answer'][:500]}...")
             print(f"時間: {result3['total_time']:.2f}s | 知識項目: {result3['knowledge_items_count']}")
             
             print(f"\n💡 三種模式各有特色，可根據需求選擇")
