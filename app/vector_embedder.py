@@ -54,14 +54,35 @@ class QwenEmbedder:
     def _load_fallback_model(self):
         """載入備用embedding模型"""
         try:
-            # 使用sentence-transformers作為備用
+            # 清理GPU記憶體
+            import torch
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                logger.info("已清理GPU記憶體緩存")
+            
+            # 使用sentence-transformers作為備用，強制CPU
             from sentence_transformers import SentenceTransformer
-            self.fallback_model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
+            self.fallback_model = SentenceTransformer(
+                'paraphrase-multilingual-MiniLM-L12-v2',
+                device='cpu'  # 強制使用CPU
+            )
             self.use_fallback = True
-            logger.info("成功載入備用embedding模型")
+            logger.info("成功載入備用embedding模型(CPU)")
         except Exception as e:
             logger.error(f"備用模型載入也失敗: {e}")
-            raise RuntimeError("無法載入任何embedding模型")
+            
+            # 最後備用方案：使用更小的模型
+            try:
+                from sentence_transformers import SentenceTransformer
+                self.fallback_model = SentenceTransformer(
+                    'all-MiniLM-L6-v2',  # 更小的英文模型
+                    device='cpu'
+                )
+                self.use_fallback = True
+                logger.info("使用最小備用模型(all-MiniLM-L6-v2)")
+            except Exception as e2:
+                logger.error(f"最小備用模型也失敗: {e2}")
+                raise RuntimeError("無法載入任何embedding模型")
     
     def _last_token_pool(self, last_hidden_states: torch.Tensor, attention_mask: torch.Tensor) -> torch.Tensor:
         """
