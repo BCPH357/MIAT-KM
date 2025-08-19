@@ -2,7 +2,7 @@ import os
 import time
 from typing import List, Dict, Any, Optional
 import logging
-from vector_embedder import QwenEmbedder
+from vector_embedder import BGEEmbedder
 from document_chunker import DocumentChunker
 from vector_retriever import VectorRetriever
 from config import PDF_DIR, MARKDOWN_DIR, CHROMA_DB_PATH
@@ -22,7 +22,7 @@ class VectorRAGProcessor:
         
         try:
             # 初始化各個組件
-            self.embedder = QwenEmbedder()
+            self.embedder = BGEEmbedder()
             self.chunker = DocumentChunker()
             self.retriever = VectorRetriever()
             

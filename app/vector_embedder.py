@@ -7,10 +7,10 @@ from config import EMBEDDING_MODEL, EMBEDDING_DEVICE, EMBEDDING_BATCH_SIZE, EMBE
 
 logger = logging.getLogger(__name__)
 
-class QwenEmbedder:
+class BGEEmbedder:
     """
-    QWEN Embedding模型封裝類
-    使用Hugging Face transformers實現QWEN模型的embedding功能
+    BGE-M3 Embedding模型封裝類
+    使用Hugging Face transformers實現BGE-M3模型的embedding功能
     """
     
     def __init__(self, 
@@ -19,7 +19,7 @@ class QwenEmbedder:
                  batch_size: int = EMBEDDING_BATCH_SIZE,
                  max_length: int = EMBEDDING_MAX_LENGTH):
         """
-        初始化QWEN Embedding模型
+        初始化BGE-M3 Embedding模型
         
         Args:
             model_name: 模型名稱
@@ -32,22 +32,22 @@ class QwenEmbedder:
         self.batch_size = batch_size
         self.max_length = max_length
         
-        logger.info(f"初始化QWEN Embedding模型: {model_name}")
+        logger.info(f"初始化BGE-M3 Embedding模型: {model_name}")
         logger.info(f"使用設備: {self.device}")
         
         try:
             # 載入tokenizer和模型
-            self.tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
-            self.model = AutoModel.from_pretrained(model_name, trust_remote_code=True)
+            self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+            self.model = AutoModel.from_pretrained(model_name)
             
             # 移動模型到指定設備
             self.model.to(self.device)
             self.model.eval()
             
-            logger.info("QWEN Embedding模型載入成功")
+            logger.info("BGE-M3 Embedding模型載入成功")
             
         except Exception as e:
-            logger.error(f"載入QWEN模型失敗: {e}")
+            logger.error(f"載入BGE-M3模型失敗: {e}")
             logger.info("嘗試使用備用embedding模型...")
             self._load_fallback_model()
     
@@ -84,18 +84,13 @@ class QwenEmbedder:
                 logger.error(f"最小備用模型也失敗: {e2}")
                 raise RuntimeError("無法載入任何embedding模型")
     
-    def _last_token_pool(self, last_hidden_states: torch.Tensor, attention_mask: torch.Tensor) -> torch.Tensor:
+    def _mean_pooling(self, token_embeddings: torch.Tensor, attention_mask: torch.Tensor) -> torch.Tensor:
         """
-        使用last token pooling策略
-        這是QWEN embedding的推薦pooling方法
+        使用mean pooling策略
+        這是BGE-M3的推薦pooling方法
         """
-        left_padding = (attention_mask[:, -1].sum() == attention_mask.shape[0])
-        if left_padding:
-            return last_hidden_states[:, -1]
-        else:
-            sequence_lengths = attention_mask.sum(dim=1) - 1
-            batch_size = last_hidden_states.shape[0]
-            return last_hidden_states[torch.arange(batch_size, device=last_hidden_states.device), sequence_lengths]
+        input_mask_expanded = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
+        return torch.sum(token_embeddings * input_mask_expanded, 1) / torch.clamp(input_mask_expanded.sum(1), min=1e-9)
     
     def encode_single(self, text: str) -> np.ndarray:
         """
@@ -127,8 +122,8 @@ class QwenEmbedder:
                 # 獲取模型輸出
                 outputs = self.model(**inputs)
                 
-                # 使用last token pooling
-                embeddings = self._last_token_pool(outputs.last_hidden_state, inputs['attention_mask'])
+                # 使用mean pooling
+                embeddings = self._mean_pooling(outputs.last_hidden_state, inputs['attention_mask'])
                 
                 # 正規化
                 embeddings = torch.nn.functional.normalize(embeddings, p=2, dim=1)
@@ -175,8 +170,8 @@ class QwenEmbedder:
                     # 獲取模型輸出
                     outputs = self.model(**inputs)
                     
-                    # 使用last token pooling
-                    batch_embeddings = self._last_token_pool(outputs.last_hidden_state, inputs['attention_mask'])
+                    # 使用mean pooling
+                    batch_embeddings = self._mean_pooling(outputs.last_hidden_state, inputs['attention_mask'])
                     
                     # 正規化
                     batch_embeddings = torch.nn.functional.normalize(batch_embeddings, p=2, dim=1)

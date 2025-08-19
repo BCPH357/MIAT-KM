@@ -25,9 +25,9 @@ VECTOR_DB_DIR = "/app/data/vector_db"
 
 # Vector Embedding 配置
 # Vector Embedding Configuration
-EMBEDDING_MODEL = "Qwen/Qwen3-Embedding-8B"  # QWEN3 Embedding模型
+EMBEDDING_MODEL = "BAAI/bge-m3"  # BGE-M3 Embedding模型 (多語言、輕量)
 EMBEDDING_DEVICE = "cpu"  # 強制使用CPU避免GPU記憶體不足
-EMBEDDING_BATCH_SIZE = 8   # 減小批次大小避免記憶體問題
+EMBEDDING_BATCH_SIZE = 16  # BGE-M3較小可以增加批次大小
 EMBEDDING_MAX_LENGTH = 512  # 最大序列長度
 EMBEDDING_CACHE_DIR = "/root/.cache/huggingface"  # Hugging Face cache目錄
 
