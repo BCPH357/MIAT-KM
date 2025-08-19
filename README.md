@@ -1,48 +1,99 @@
-# MIAT-KM: Neo4j RAG 知識管理系統
+# MIAT-KM: 雙重RAG知識管理系統
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=flat&logo=docker&logoColor=white)](https://www.docker.com/)
 
-一個整合 **Neo4j 知識圖譜**、**LangChain** 和 **Ollama** 的智能 RAG (Retrieval-Augmented Generation) 系統。支援從 PDF 文件自動提取知識三元組，建構知識圖譜，並提供基於 LLM 的智能問答功能。
+一個整合 **Neo4j 知識圖譜**、**BGE-M3 向量檢索** 和 **Ollama** 的雙重RAG系統。支援從 PDF/Markdown 文件自動提取知識三元組、建構知識圖譜、向量數據庫，並提供三種模式的智能問答功能。
 
 ## ✨ 主要功能
 
-- 🔄 **自動三元組提取**: 使用 Ollama Gemma3 12B 從 PDF 文件提取知識三元組
+- 🔄 **自動三元組提取**: 使用 Ollama LLM 從 PDF/Markdown 文件提取知識三元組
 - 📊 **知識圖譜構建**: 將提取的三元組自動導入 Neo4j 建構知識圖譜
-- 🤖 **多模式智能問答**: 
-  - **改進LangChain模式**: 優化的GraphCypherQAChain，提供更詳細的回答
-  - **混合RAG模式**: 結合LangChain檢索與自定義生成，獲得最佳回答品質
-  - **模式比較功能**: 即時比較不同問答模式的效果
-- ⚡ **GPU 加速**: 支援 NVIDIA GPU 加速 LLM 推理
+- 🔍 **向量檢索系統**: 使用 BGE-M3 embedding 模型 + ChromaDB 建構向量檢索系統
+- 🤖 **三模式智能問答**: 
+  - **KG模式**: 基於Neo4j知識圖譜的結構化檢索
+  - **Vector模式**: 基於BGE-M3 + ChromaDB的語義相似度檢索
+  - **Hybrid-All模式**: 融合知識圖譜與向量檢索的雙重RAG系統
+- 🆚 **模式比較功能**: 即時比較三種問答模式的效果差異
+- ⚡ **GPU 加速**: 支援 NVIDIA GPU 加速 LLM 推理 (embedding使用CPU避免GPU記憶體衝突)
 - 🐳 **容器化部署**: 完整的 Docker Compose 一鍵部署方案
-- 🎯 **增強用戶體驗**: 直觀的命令介面和詳細的執行反饋
 
 ## 🏗️ 系統架構
 
 ```
-用戶查詢 → LangChain → 生成Cypher查詢 → Neo4j → 檢索知識 → Ollama → 生成回答
+        ┌─────────────────────────────────────────────────────────┐
+        │                 用戶查詢輸入                           │
+        └─────────────────┬───────────────────────────────────────┘
+                          │
+        ┌─────────────────▼───────────────────────────────────────┐
+        │                選擇RAG模式                            │ 
+        └─┬─────────────┬─────────────┬─────────────────────────┘
+          │             │             │
+     ┌────▼───┐   ┌─────▼────┐   ┌────▼────────┐
+     │KG模式  │   │Vector模式│   │Hybrid-All   │
+     │        │   │          │   │模式         │
+     └────┬───┘   └─────┬────┘   └────┬────────┘
+          │             │             │
+    ┌─────▼─────┐ ┌─────▼─────┐      │
+    │Neo4j圖譜  │ │BGE-M3     │      │
+    │Cypher查詢 │ │+ChromaDB  │      │
+    │          │ │向量檢索    │      │
+    └─────┬─────┘ └─────┬─────┘      │
+          │             │             │
+          └──────┬──────┴─────────────┤
+                 │                    │
+          ┌──────▼──────┐    ┌───────▼──────┐
+          │  檢索結果   │    │ 雙重檢索結合 │
+          │    整合     │    │   (Hybrid)   │
+          └──────┬──────┘    └───────┬──────┘
+                 │                    │
+                 └──────┬─────────────┘
+                        │
+              ┌─────────▼─────────┐
+              │   Ollama LLM     │
+              │   生成最終回答    │
+              └───────────────────┘
 ```
 
 ## 📁 專案結構
 
 ```
 MIAT-KM/
-├── docker-compose.yml           # Docker 服務編排
+├── docker-compose.yml           # Docker 服務編排 (Neo4j + Ollama + App)
 ├── README.md                    # 專案說明文件
+├── CLAUDE.md                    # 專案快速指南
 ├── .gitignore                   # Git 忽略規則
 └── app/                         # 應用程式目錄
     ├── Dockerfile               # Python 應用容器配置
     ├── requirements.txt         # Python 依賴套件
+    ├── config.py                # 全域配置中心
     ├── main.py                  # 主程式入口點
+    │
+    ├── # 知識圖譜相關
     ├── sentence_triplet_extractor.py  # 三元組提取器
-    ├── import_to_neo4j.py       # Neo4j 數據導入工具
-    ├── rag_system.py            # RAG 系統核心邏輯
-    ├── knowledge_retriever.py   # 知識檢索器 (含 LangChain 整合)
-    ├── ollama_client.py         # Ollama API 客戶端
-    └── data/                    # 數據目錄
-        ├── pdf/                 # PDF 文件存放處
-        └── processed/           # 處理後數據存放處
+    ├── import_to_neo4j.py              # Neo4j 數據導入工具
+    ├── knowledge_retriever.py          # 知識圖譜檢索器
+    │
+    ├── # 向量RAG相關
+    ├── vector_embedder.py              # BGE-M3 向量編碼器
+    ├── vector_retriever.py             # ChromaDB 向量檢索器
+    ├── document_chunker.py             # 智能文檔分塊器
+    ├── vector_rag_processor.py         # 向量RAG處理器
+    │
+    ├── # 系統核心
+    ├── rag_system.py                   # 三模式RAG系統整合
+    ├── ollama_client.py                # Ollama API 客戶端
+    │
+    ├── # 實用工具
+    ├── reset_vector_db.py              # 向量數據庫重置工具
+    │
+    └── data/                           # 數據目錄
+        ├── pdf/                        # PDF 文件存放處
+        ├── markdown/                   # Markdown 文件存放處
+        ├── processed/                  # 處理後數據存放處
+        ├── chroma_db/                  # ChromaDB 向量數據庫
+        └── vector_db/                  # 其他向量數據
 ```
 
 ## 🚀 快速開始
@@ -87,8 +138,8 @@ docker run --rm --gpus all nvidia/cuda:11.0.3-base-ubuntu20.04 nvidia-smi
    # 進入 Ollama 容器
    sudo docker-compose exec ollama bash
    
-   # 下載 Gemma3 12B 模型 (推薦)
-   ollama pull gemma3:12b
+   # 下載 gpt-oss:20b 模型 (推薦)
+   ollama pull gpt-oss:20b
    
    # 退出容器
    exit
@@ -101,37 +152,116 @@ docker run --rm --gpus all nvidia/cuda:11.0.3-base-ubuntu20.04 nvidia-smi
 
 ### 🎯 使用方式
 
-1. **放置 PDF 文件**
+#### 第一次使用需要準備數據
+
+1. **放置文件**
    ```bash
    # 將你的 PDF 文件複製到 app/data/pdf/ 目錄
    cp your-document.pdf app/data/pdf/
+   
+   # 將你的 Markdown 文件複製到 app/data/markdown/ 目錄
+   cp your-document.md app/data/markdown/
    ```
 
-2. **啟動主程式**
+2. **啟動主程式並建立知識庫**
    ```bash
    sudo docker-compose exec app python main.py
    ```
 
-3. **選擇功能**
+3. **按照菜單順序執行**
    ```
    === 知識圖譜應用菜單 ===
-   1. 從 PDF 文件提取三元組
-   2. 將三元組導入到 Neo4j
-   3. RAG 問答系統
-   4. 退出
+   1. 從文件提取三元組 (PDF 和 Markdown)     # 先執行這個
+   2. 將三元組導入到 Neo4j                    # 再執行這個
+   3. RAG 問答系統                           # 問答功能
+   4. Vector RAG 文檔預處理                   # 向量RAG準備
+   5. 退出
    ```
 
-4. **使用 RAG 問答系統**
+#### 建立向量檢索系統
+
+4. **Vector RAG 預處理 (選擇選項4)**
+   ```
+   === Vector RAG 文檔預處理 ===
+   1. 處理所有文檔 (清空現有數據)              # 第一次選這個
+   2. 處理所有文檔 (增量模式)                 # 後續新增文件選這個
+   3. 查看數據庫統計
+   4. 清空向量數據庫
+   5. 測試向量搜索
+   6. 返回主菜單
+   ```
+
+#### 使用三模式RAG問答
+
+5. **使用 RAG 問答系統 (選擇選項3)**
    
-   系統提供多種問答模式：
+   系統提供三種問答模式：
    
-   - **直接輸入問題**: 使用改進的LangChain模式
-   - **`hybrid <問題>`**: 使用混合RAG模式 (**推薦**)
-   - **`langchain <問題>`**: 使用原始LangChain模式
-   - **`compare <問題>`**: 同時比較三種模式的效果
+   - **`KG <問題>`**: 使用知識圖譜模式
+   - **`vector <問題>`**: 使用純向量RAG模式  
+   - **`hybrid-all <問題>`**: 使用全混合模式(知識圖譜+向量)
+   - **`compare <問題>`**: 比較三種模式效果
    - **`quit` 或 `exit`**: 退出問答系統
    
-   **混合RAG模式**結合了LangChain精準的知識檢索能力與自定義生成的詳細回答，通常能提供最佳的問答體驗。
+   **使用範例**:
+   ```
+   請輸入問題: KG MIAT方法論是什麼
+   請輸入問題: vector 如何設計系統架構
+   請輸入問題: hybrid-all 什麼是離散事件建模
+   請輸入問題: compare RAG系統的優勢
+   ```
+
+## 🔧 配置說明
+
+### 系統核心配置 (config.py)
+
+```python
+# LLM模型配置
+OLLAMA_MODEL = "gpt-oss:20b"
+OLLAMA_BASE_URL = "http://ollama:11434"
+
+# Neo4j配置
+NEO4J_URI = "bolt://neo4j:7687"
+NEO4J_USER = "neo4j"  
+NEO4J_PASSWORD = "password123"
+
+# BGE-M3 Embedding配置
+EMBEDDING_MODEL = "BAAI/bge-m3"          # 多語言embedding模型
+EMBEDDING_DEVICE = "cpu"                 # 強制CPU避免GPU記憶體衝突
+EMBEDDING_BATCH_SIZE = 16                # 批次處理大小
+EMBEDDING_MAX_LENGTH = 512               # 最大序列長度
+
+# ChromaDB配置
+CHROMA_DB_PATH = "/app/data/chroma_db"
+CHROMA_COLLECTION_NAME = "miat_documents"
+
+# 文檔分塊配置
+CHUNK_SIZE = 512                         # 每個chunk最大字符數
+CHUNK_OVERLAP = 50                       # chunk重疊字符數
+MIN_CHUNK_SIZE = 100                     # 最小chunk大小
+```
+
+### Docker容器配置
+
+- **Neo4j**: 7475端口(Web UI), 7688端口(Bolt)
+- **Ollama**: 11435端口, GPU加速
+- **App**: Python應用, GPU加速, 掛載數據目錄
+- **數據持久化**: 所有數據通過volumes持久保存
+
+## 🆚 三種RAG模式比較
+
+| 模式 | 檢索方式 | 適用場景 | 優勢 | 劣勢 |
+|------|----------|----------|------|------|
+| **KG** | 結構化Cypher查詢 | 邏輯推理、實體關係查詢 | 精確、可解釋 | 需要結構化知識 |
+| **Vector** | 語義相似度匹配 | 內容檢索、模糊查詢 | 覆蓋面廣、語義理解 | 可能不夠精確 |
+| **Hybrid-All** | 知識圖譜+向量雙重檢索 | 複雜問答、全面分析 | 結合兩者優勢 | 計算資源需求高 |
+
+### 使用建議
+
+- **日常查詢**: 使用 `KG <問題>` (快速、精確)
+- **內容搜索**: 使用 `vector <問題>` (語義匹配)
+- **重要問題**: 使用 `hybrid-all <問題>` (最全面)
+- **效果比較**: 使用 `compare <問題>` (了解差異)
 
 ## 🐳 Docker Compose 常用命令
 
@@ -180,77 +310,10 @@ sudo docker system prune -a
 
 # 查看 GPU 使用情況 (需要 nvidia-docker)
 sudo docker-compose exec ollama nvidia-smi
+
+# 重置向量數據庫
+sudo docker-compose exec app python reset_vector_db.py
 ```
-
-## 📁 核心文件說明
-
-### 🔧 配置文件
-- **`docker-compose.yml`**: 定義 Neo4j、Ollama、App 三個服務的配置
-- **`app/Dockerfile`**: Python 應用的容器構建配置
-- **`app/requirements.txt`**: Python 依賴套件清單
-
-### 🎯 主程式
-- **`main.py`**: 系統主入口，提供用戶交互菜單
-- **`rag_system.py`**: 增強型RAG系統核心邏輯，包含：
-  - 多模式問答支援 (LangChain/混合RAG/傳統RAG)
-  - 模式比較功能
-  - 增強的用戶介面和結果顯示
-
-### 🔍 知識處理
-- **`sentence_triplet_extractor.py`**: 使用 Ollama 從 PDF 逐句提取三元組
-- **`import_to_neo4j.py`**: 將 CSV 格式的三元組批量導入 Neo4j
-- **`knowledge_retriever.py`**: 增強型知識檢索器，支援多種RAG模式：
-  - LangChain GraphCypherQAChain 整合
-  - 自定義QA prompt模板優化
-  - 混合RAG模式實現
-
-### 🤖 LLM 整合
-- **`ollama_client.py`**: Ollama API 客戶端，處理與本地 LLM 的通信
-
-## 🚀 RAG 系統特色
-
-### 🔄 多模式問答架構
-
-本系統提供三種不同的RAG問答模式，滿足不同場景需求：
-
-#### 1. 改進LangChain模式 (Enhanced LangChain)
-- **特點**: 基於LangChain GraphCypherQAChain的優化版本
-- **改進**: 
-  - 自定義QA prompt模板，指導LLM生成更詳細回答
-  - 優化Ollama參數配置 (num_predict=512, temperature=0.7)
-  - 提升回答的完整性和結構化程度
-- **適用**: 需要快速且相對詳細回答的場景
-
-#### 2. 混合RAG模式 (**推薦**)
-- **特點**: 結合LangChain精準檢索與自定義生成的最佳實踐
-- **工作流程**: 
-  1. 使用LangChain生成Cypher查詢並檢索知識
-  2. 將檢索結果交由自定義RAG生成器處理
-  3. 基於豐富的prompt模板生成詳細、完整的回答
-- **優勢**: 
-  - 檢索精度高 (LangChain)
-  - 回答品質佳 (自定義生成)
-  - 知識整合完整
-- **適用**: 需要高品質、詳細回答的重要查詢
-
-#### 3. 傳統RAG模式
-- **特點**: 直接使用Neo4j檢索配合自定義生成
-- **適用**: 對檢索邏輯有特殊需求的場景
-
-### 📊 模式比較功能
-
-使用 `compare <問題>` 命令可以同時測試三種模式，幫助您：
-- 對比不同模式的回答品質
-- 分析執行時間差異
-- 選擇最適合的問答模式
-- 評估系統性能
-
-### 🎯 使用建議
-
-1. **日常問答**: 直接輸入問題 (改進LangChain模式)
-2. **重要查詢**: 使用 `hybrid <問題>` (混合RAG模式)
-3. **效果比較**: 使用 `compare <問題>` (三模式對比)
-4. **調試檢索**: 使用 `langchain <問題>` (查看詳細過程)
 
 ## 🌐 服務訪問
 
@@ -260,18 +323,18 @@ sudo docker-compose exec ollama nvidia-smi
 - **Ollama API**: http://localhost:11435
 - **應用程式**: 通過 Docker Compose 執行
 
-## ⚙️ 系統配置
+## ⚙️ 系統要求
 
 ### 💾 硬體需求
-- **最低配置**: 8GB RAM, 4 CPU cores
-- **推薦配置**: 16GB+ RAM, 8+ CPU cores, NVIDIA GPU (8GB+ VRAM)
-- **磁碟空間**: 至少 20GB 可用空間
+- **最低配置**: 16GB RAM, 8 CPU cores
+- **推薦配置**: 32GB+ RAM, 16+ CPU cores, NVIDIA GPU (16GB+ VRAM)
+- **磁碟空間**: 至少 50GB 可用空間 (模型檔案較大)
 
-### 🔧 環境變數
-可在 `docker-compose.yml` 中調整：
-- Neo4j 記憶體配置: `NEO4J_dbms_memory_*`
-- Ollama 模型路徑: `/root/.ollama` 卷掛載
-- 應用數據路徑: `./app/data` 卷掛載
+### 📊 性能建議
+- **embedding模型**: 使用CPU避免GPU記憶體衝突
+- **LLM推理**: 使用GPU加速
+- **文檔分塊**: 適當調整CHUNK_SIZE以平衡精度和效率
+- **批次處理**: 根據記憶體大小調整EMBEDDING_BATCH_SIZE
 
 ## 🛠️ 開發指南
 
@@ -291,14 +354,46 @@ sudo docker-compose build app
 sudo docker-compose up -d
 ```
 
-### 🔄 數據備份
+### 🔄 數據備份與恢復
 ```bash
 # 備份 Neo4j 數據
 sudo docker-compose exec neo4j neo4j-admin database dump neo4j /data/neo4j.dump
 
+# 備份向量數據庫
+cp -r app/data/chroma_db/ backup/chroma_db/
+
 # 備份處理後的數據
-cp -r app/data/processed/ backup/
+cp -r app/data/processed/ backup/processed/
 ```
+
+### 🔧 模型管理
+```bash
+# 查看已安裝模型
+sudo docker-compose exec ollama ollama list
+
+# 下載新模型
+sudo docker-compose exec ollama ollama pull model_name
+
+# 刪除模型
+sudo docker-compose exec ollama ollama rm model_name
+```
+
+## 🚀 系統特色
+
+### 🔄 雙重RAG架構
+- **知識圖譜**: 結構化知識，精確推理
+- **向量檢索**: 語義理解，覆蓋面廣  
+- **智能融合**: 自動選擇最佳檢索方式
+
+### 🎯 多語言支援
+- **BGE-M3**: 中英文都有優秀表現
+- **文檔處理**: 支援PDF、Markdown等格式
+- **智能分塊**: 保持語義完整性
+
+### ⚡ 性能優化
+- **GPU/CPU合理分配**: LLM用GPU，embedding用CPU
+- **模型緩存**: 避免重複下載
+- **批次處理**: 提升向量化效率
 
 ## 🤝 貢獻指南
 
@@ -307,6 +402,20 @@ cp -r app/data/processed/ backup/
 3. 提交修改 (`git commit -m 'Add amazing feature'`)
 4. 推送到分支 (`git push origin feature/amazing-feature`)
 5. 創建 Pull Request
+
+## ❓ 常見問題
+
+### Q: Vector RAG 處理卡住怎麼辦？
+A: 檢查GPU記憶體使用情況，必要時重啟容器或清理GPU記憶體。
+
+### Q: 如何更換embedding模型？
+A: 修改 config.py 中的 EMBEDDING_MODEL，重建容器，並清空向量數據庫重新處理文檔。
+
+### Q: Neo4j 連接失敗？
+A: 確認服務已啟動，檢查密碼是否正確，必要時重新創建容器。
+
+### Q: 模型下載速度慢？
+A: 可以使用代理或鏡像加速，或手動下載模型檔案。
 
 ## 📄 授權協議
 
@@ -320,4 +429,4 @@ cp -r app/data/processed/ backup/
 
 ---
 
-**🎉 快速開始你的知識管理之旅！** 如果遇到任何問題，請查看 Issues 或創建新的 Issue。 
+**🎉 開始你的雙重RAG知識管理之旅！** 如果遇到任何問題，請查看 Issues 或創建新的 Issue。

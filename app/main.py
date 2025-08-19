@@ -1,4 +1,3 @@
-print("Hello World")
 import time
 import os
 from neo4j import GraphDatabase
