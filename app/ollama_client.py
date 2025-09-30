@@ -1,6 +1,7 @@
 import requests
 import json
-from typing import Optional, Dict, Any
+import re
+from typing import Optional, Dict, Any, Tuple
 from config import OLLAMA_BASE_URL, MODEL_TEMPERATURE, MODEL_NUM_PREDICT
 
 class OllamaClient:
@@ -121,15 +122,46 @@ class OllamaClient:
         available_models = [model["name"] for model in models_info.get("models", [])]
         return model_name in available_models
     
+    def _parse_cot_response(self, response_text: str) -> Tuple[str, str]:
+        """
+        解析CoT回應，分離思考過程和最終答案
+        返回: (thinking, answer)
+        """
+        # 嘗試匹配 <thinking>...</thinking> 和 <answer>...</answer> 格式
+        thinking_match = re.search(r'<thinking>(.*?)</thinking>', response_text, re.DOTALL)
+        answer_match = re.search(r'<answer>(.*?)</answer>', response_text, re.DOTALL)
+        
+        thinking = ""
+        answer = ""
+        
+        if thinking_match:
+            thinking = thinking_match.group(1).strip()
+        
+        if answer_match:
+            answer = answer_match.group(1).strip()
+        else:
+            # 如果沒有找到標籤格式，嘗試其他格式或使用整個回應作為答案
+            if thinking:
+                # 如果有thinking但沒有answer標籤，取thinking後面的內容作為答案
+                answer_start = response_text.find('</thinking>') + len('</thinking>')
+                if answer_start < len(response_text):
+                    answer = response_text[answer_start:].strip()
+            else:
+                # 完全沒有標籤格式，整個回應作為答案
+                answer = response_text.strip()
+        
+        return thinking, answer
+    
     def rag_generate(self, 
                      model: str,
                      user_query: str,
                      knowledge_context: str,
-                     temperature: float = 0.7) -> str:
+                     temperature: float = 0.7) -> Dict[str, str]:
         """
         基於 RAG 的生成：結合用戶查詢和知識上下文
+        返回包含thinking和answer的字典
         """
-        # 構建 RAG prompt
+        # 構建帶有CoT的RAG prompt
         rag_prompt = f"""你是一個知識問答助手。請根據以下提供的知識上下文來回答用戶的問題。
 
 知識上下文：
@@ -137,7 +169,21 @@ class OllamaClient:
 
 用戶問題：{user_query}
 
-請根據上述知識上下文回答問題。如果知識上下文中沒有相關信息，請明確說明，並基於你的一般知識提供幫助。回答要準確、詳細且有條理。"""
+請按照以下格式回答，先思考再給出最終答案：
+
+<thinking>
+[請在這裡寫出你的思考過程：
+1. 分析用戶問題的關鍵點
+2. 從知識上下文中找出相關信息
+3. 進行邏輯推理和分析
+4. 組織答案結構]
+</thinking>
+
+<answer>
+[請在這裡給出最終的詳細答案，基於上述思考過程和知識上下文]
+</answer>
+
+請確保思考過程詳細清晰，最終答案準確完整。"""
 
         result = self.generate(
             model=model,
@@ -147,9 +193,25 @@ class OllamaClient:
         )
         
         if "error" in result:
-            return f"生成回答時發生錯誤: {result['error']}"
+            return {
+                "thinking": "生成過程中發生錯誤",
+                "answer": f"生成回答時發生錯誤: {result['error']}"
+            }
         
-        return result.get("response", "無法生成回答")
+        response_text = result.get("response", "無法生成回答")
+        thinking, answer = self._parse_cot_response(response_text)
+        
+        # 在終端log思考過程
+        if thinking:
+            print(f"\n🤔 AI思考過程:")
+            print(f"{'='*50}")
+            print(thinking)
+            print(f"{'='*50}")
+        
+        return {
+            "thinking": thinking,
+            "answer": answer if answer else response_text
+        }
     
     def simple_generate(self, 
                        model: str,

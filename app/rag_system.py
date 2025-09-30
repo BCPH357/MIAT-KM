@@ -46,6 +46,7 @@ class RAGSystem:
             "use_hybrid_all": use_hybrid_all,
             "knowledge_context": "",
             "answer": "",
+            "thinking": "",
             "retrieval_time": 0,
             "generation_time": 0,
             "total_time": 0,
@@ -82,7 +83,7 @@ class RAGSystem:
             
             # 使用組合上下文生成回答
             generation_start = time.time()
-            detailed_answer = self.ollama_client.rag_generate(
+            cot_response = self.ollama_client.rag_generate(
                 model=self.model_name,
                 user_query=user_query,
                 knowledge_context=combined_context,
@@ -90,7 +91,8 @@ class RAGSystem:
             )
             generation_time = time.time() - generation_start
             
-            result["answer"] = detailed_answer
+            result["answer"] = cot_response["answer"]
+            result["thinking"] = cot_response["thinking"]
             result["cypher_query"] = hybrid_result["cypher_query"]
             result["context_data"] = hybrid_result["context"]
             result["vector_results"] = vector_results
@@ -119,7 +121,7 @@ class RAGSystem:
                 
                 # 生成回答
                 generation_start = time.time()
-                answer = self.ollama_client.rag_generate(
+                cot_response = self.ollama_client.rag_generate(
                     model=self.model_name,
                     user_query=user_query,
                     knowledge_context=vector_context,
@@ -127,7 +129,8 @@ class RAGSystem:
                 )
                 generation_time = time.time() - generation_start
                 
-                result["answer"] = answer
+                result["answer"] = cot_response["answer"]
+                result["thinking"] = cot_response["thinking"]
                 result["knowledge_context"] = vector_context
                 result["vector_results"] = vector_results
                 result["knowledge_items_count"] = len(vector_results)
@@ -271,6 +274,12 @@ class RAGSystem:
         else:
             print(f"\n📊 沒有檢索到相關知識")
         
+        if result['thinking']:
+            print(f"\n🤔 AI思考過程:")
+            print(f"{'='*50}")
+            print(result['thinking'])
+            print(f"{'='*50}")
+        
         print(f"\n🤖 知識圖譜回答:")
         print(f"{result['answer']}")
         
@@ -293,6 +302,12 @@ class RAGSystem:
                 print(f"      來源: {vr['metadata'].get('source_file', 'Unknown')}")
         else:
             print(f"\n📊 沒有檢索到相關知識")
+        
+        if result['thinking']:
+            print(f"\n🤔 AI思考過程:")
+            print(f"{'='*50}")
+            print(result['thinking'])
+            print(f"{'='*50}")
         
         print(f"\n🤖 向量RAG回答:")
         print(f"{result['answer']}")
@@ -332,6 +347,12 @@ class RAGSystem:
             for i, vr in enumerate(result['vector_results'], 1):
                 print(f"   {i}. [相似度: {vr['similarity_score']:.3f}] {vr['content'][:500]}...")
                 print(f"      來源: {vr['metadata'].get('source_file', 'Unknown')}")
+        
+        if result['thinking']:
+            print(f"\n🤔 AI思考過程:")
+            print(f"{'='*50}")
+            print(result['thinking'])
+            print(f"{'='*50}")
         
         print(f"\n🤖 全混合RAG回答:")
         print(f"{result['answer']}")
