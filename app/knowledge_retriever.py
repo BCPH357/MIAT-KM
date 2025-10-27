@@ -86,7 +86,41 @@ Cypher:""")
     
     def close(self):
         self.driver.close()
-    
+
+    def hybrid_search_context_only(self, query: str) -> Dict:
+        """
+        僅進行知識圖譜檢索,不生成LLM回答
+        用於hybrid-all模式,避免重複生成回答
+        """
+        try:
+            # 使用LangChain僅進行Cypher查詢和數據檢索
+            result = self.cypher_chain.invoke({"query": query})
+
+            # 解析檢索結果
+            cypher_query = ''
+            context_data = []
+
+            if 'intermediate_steps' in result and result['intermediate_steps']:
+                if len(result['intermediate_steps']) > 0:
+                    cypher_query = result['intermediate_steps'][0].get('query', '')
+                if len(result['intermediate_steps']) > 1:
+                    context_data = result['intermediate_steps'][1].get('context', [])
+
+            return {
+                'cypher_query': cypher_query,
+                'context': context_data,
+                'mode': 'context_only'
+            }
+        except Exception as e:
+            print(f"❌ 知識圖譜檢索錯誤: {e}")
+            import traceback
+            traceback.print_exc()
+            return {
+                'cypher_query': '',
+                'context': [],
+                'mode': 'context_only'
+            }
+
     def hybrid_search(self, query: str, ollama_client) -> Dict:
         """
         混合RAG模式：使用LangChain檢索 + 自定義回答生成

@@ -59,9 +59,9 @@ class RAGSystem:
         if use_hybrid_all:
             # 使用混合檢索模式：同時使用知識圖譜和向量檢索
             retrieval_start = time.time()
-            
-            # 獲取知識圖譜結果
-            hybrid_result = self.knowledge_retriever.hybrid_search(user_query, self.ollama_client)
+
+            # 獲取知識圖譜結果(僅檢索,不生成回答)
+            hybrid_result = self.knowledge_retriever.hybrid_search_context_only(user_query)
             
             # 獲取向量檢索結果
             vector_results = []
