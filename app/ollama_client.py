@@ -2,7 +2,7 @@ import requests
 import json
 import re
 from typing import Optional, Dict, Any, Tuple
-from config import OLLAMA_BASE_URL, MODEL_TEMPERATURE, MODEL_NUM_PREDICT
+from config import OLLAMA_BASE_URL, MODEL_TEMPERATURE, MODEL_NUM_PREDICT, RAG_COT_PROMPT
 
 class OllamaClient:
     def __init__(self, base_url: str = OLLAMA_BASE_URL):
@@ -152,7 +152,7 @@ class OllamaClient:
         
         return thinking, answer
     
-    def rag_generate(self, 
+    def rag_generate(self,
                      model: str,
                      user_query: str,
                      knowledge_context: str,
@@ -161,29 +161,11 @@ class OllamaClient:
         基於 RAG 的生成：結合用戶查詢和知識上下文
         返回包含thinking和answer的字典
         """
-        # 構建帶有CoT的RAG prompt
-        rag_prompt = f"""你是一個知識問答助手。請根據以下提供的知識上下文來回答用戶的問題。
-
-知識上下文：
-{knowledge_context}
-
-用戶問題：{user_query}
-
-請按照以下格式回答，先思考再給出最終答案：
-
-<thinking>
-[請在這裡寫出你的思考過程：
-1. 分析用戶問題的關鍵點
-2. 從知識上下文中找出相關信息
-3. 進行邏輯推理和分析
-4. 組織答案結構]
-</thinking>
-
-<answer>
-[請在這裡給出最終的詳細答案，基於上述思考過程和知識上下文]
-</answer>
-
-請確保思考過程詳細清晰，最終答案準確完整。"""
+        # 構建帶有CoT的RAG prompt，使用config中的模板
+        rag_prompt = RAG_COT_PROMPT.format(
+            knowledge_context=knowledge_context,
+            user_query=user_query
+        )
 
         result = self.generate(
             model=model,

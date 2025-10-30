@@ -8,7 +8,11 @@ import re
 import json
 import logging
 from typing import List, Tuple, Dict, Any
-from config import OLLAMA_MODEL
+from config import (
+    OLLAMA_MODEL,
+    TRIPLET_EXTRACTION_PROMPT_GEMMA,
+    TRIPLET_EXTRACTION_PROMPT_GPT_OSS
+)
 
 logger = logging.getLogger(__name__)
 
@@ -36,28 +40,9 @@ class ModelAdapter:
 
 class GemmaAdapter(ModelAdapter):
     """Gemma 模型適配器（原有邏輯）"""
-    
+
     def get_system_prompt(self) -> str:
-        return """從句子中抽取三元組，格式：<三元組>主語|謂語|賓語</三元組>
-
-規則：
-1. 只抽取句子中明確存在的關係
-2. 主語和賓語必須是具體實體或概念
-3. 謂語是動詞或關係詞
-4. 每個三元組用 <三元組></三元組> 包圍
-5. 如果沒有明確關係，輸出：<三元組>無</三元組>
-
-例子：
-句子：張三使用Python開發網站
-輸出：
-<三元組>張三|使用|Python</三元組>
-<三元組>張三|開發|網站</三元組>
-
-句子：GRAFCET是一種控制系統設計方法
-輸出：
-<三元組>GRAFCET|是|控制系統設計方法</三元組>
-
-現在處理："""
+        return TRIPLET_EXTRACTION_PROMPT_GEMMA
 
     def get_api_options(self) -> Dict[str, Any]:
         return {
@@ -130,31 +115,9 @@ class GemmaAdapter(ModelAdapter):
 
 class GPTOSSAdapter(ModelAdapter):
     """GPT-OSS 模型適配器"""
-    
+
     def get_system_prompt(self) -> str:
-        return """你是一個專業的知識抽取助手。請從給定的文本中抽取知識三元組。
-
-任務：
-1. 仔細閱讀文本
-2. 識別出重要的實體（人物、地點、概念、方法等）
-3. 識別實體之間的關係
-4. 以 (主體, 關係, 客體) 的格式輸出三元組
-
-要求：
-- 主體和客體應該是具體的實體或概念
-- 關係應該清楚表達兩者之間的聯繫
-- 避免過於抽象或模糊的關係
-- 確保三元組在語義上是正確的
-
-請以以下JSON格式回應：
-[
-    {"subject": "主體名稱", "predicate": "關係描述", "object": "客體名稱"},
-    {"subject": "主體名稱", "predicate": "關係描述", "object": "客體名稱"}
-]
-
-只回應JSON格式，不要其他說明文字。
-
-現在處理文本："""
+        return TRIPLET_EXTRACTION_PROMPT_GPT_OSS
 
     def get_api_options(self) -> Dict[str, Any]:
         return {
